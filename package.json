@@ -1,0 +1,17 @@
+{
+  "name": "kaskita-api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "wrangler dev",
+    "deploy": "wrangler deploy --minify"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "hono": "^4.4.7"
+  },
+  "devDependencies": {
+    "wrangler": "^3.60.3"
+  }
+}
