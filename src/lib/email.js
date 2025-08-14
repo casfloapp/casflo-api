@@ -1,11 +1,11 @@
 // src/lib/email.js
 
 export const sendVerificationEmail = async (c, { to, code }) => {
-  const from = 'CasFlo.id <no-reply@casflo.id>'; // GANTI dengan domain terverifikasi Anda di Resend
-  const subject = `Kode Verifikasi Anda untuk KasKita: ${code}`;
+  const from = 'casflo.id <no-reply@casflo.id>'; // GANTI dengan domain terverifikasi Anda di Resend
+  const subject = `Kode Verifikasi Anda untuk casflo.id: ${code}`;
   const html = `
     <div style="font-family: sans-serif; text-align: center;">
-      <h2>Verifikasi Akun CasFlo.id Anda</h2>
+      <h2>Verifikasi Akun casflo.id Anda</h2>
       <p>Gunakan kode di bawah ini untuk menyelesaikan pendaftaran Anda.</p>
       <p style="font-size: 24px; font-weight: bold; letter-spacing: 5px; background: #f0f0f0; padding: 15px;">
         ${code}
