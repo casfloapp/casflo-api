@@ -163,6 +163,31 @@ walletSpecificRoutes.put('/settings', async (c) => {
     return c.json({ success: true, data: updatedSettings });
 });
 
+// --- [BARU] CRUD Pengingat (Alarm) ---
+walletSpecificRoutes.get('/reminders', async (c) => {
+    const { walletId } = c.req.param();
+    const reminders = await q.findRemindersByWalletId(c.env.DB, walletId);
+    const remindersInRupiah = reminders.map(r => ({ ...r, amount: r.amount ? r.amount / 100 : null }));
+    return c.json({ success: true, data: remindersInRupiah });
+});
+walletSpecificRoutes.post('/reminders', async (c) => {
+    const { walletId } = c.req.param();
+    const body = await c.req.json();
+    const newReminder = await q.createReminder(c.env.DB, { wallet_id: walletId, ...body });
+    return c.json({ success: true, data: newReminder }, 201);
+});
+walletSpecificRoutes.put('/reminders/:reminderId', async (c) => {
+    const { reminderId } = c.req.param();
+    const body = await c.req.json();
+    const updatedReminder = await q.updateReminder(c.env.DB, reminderId, body);
+    return c.json({ success: true, data: updatedReminder });
+});
+walletSpecificRoutes.delete('/reminders/:reminderId', async (c) => {
+    const { reminderId } = c.req.param();
+    await q.deleteReminder(c.env.DB, reminderId);
+    return c.json({ success: true, message: 'Reminder deleted successfully' });
+});
+
 // --- [DIPERTAHANKAN] CRUD Kategori ---
 walletSpecificRoutes.get('/categories', async (c) => {
     const { walletId } = c.req.param();
@@ -234,8 +259,6 @@ walletSpecificRoutes.delete('/transactions/:transactionId', async (c) => {
     if (result.error) { return c.json({ success: false, error: { message: result.error }}, 404); }
     return c.json({ success: true, message: 'Transaction deleted successfully' });
 });
-// Catatan: PUT /transactions/:transactionId sengaja tidak diimplementasikan karena kompleks.
-// Cara terbaik adalah dengan menghapus transaksi lama lalu membuat yang baru di sisi frontend.
 
 // --- [DIPERTAHANKAN] CRUD Anggota ---
 walletSpecificRoutes.get('/members', async (c) => {

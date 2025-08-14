@@ -221,7 +221,7 @@ export const getWalletSummary = async (db, walletId) => {
     return { assets: assetsResult || 0, liabilities: liabilitiesResult || 0, net_worth: (assetsResult || 0) - (liabilitiesResult || 0), monthly_income: monthlyIncomeResult || 0, monthly_expense: monthlyExpenseResult || 0 };
 };
 
-// --- [BARU] Query untuk Laporan, Anggaran, dll ---
+// --- [BARU] Query untuk Laporan, Anggaran, Pengaturan, dll ---
 export const getExpenseReportByCategory = async (db, walletId, filters = {}) => {
   let query = `SELECT c.name as category_name, c.id as category_id, SUM(s.amount) as total_amount FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.wallet_id = ? AND c.type = 'EXPENSE'`;
   const params = [walletId];
@@ -272,11 +272,31 @@ export const deleteRecurringTransaction = async (db, rtId) => {
 export const findSettingsByWalletId = async (db, walletId) => {
     let settings = await db.prepare('SELECT * FROM wallet_settings WHERE wallet_id = ?').bind(walletId).first();
     if (!settings) {
-        return { wallet_id: walletId, start_of_month: 1, theme: 'SYSTEM' };
+        return { wallet_id: walletId, start_of_month: 1, theme: 'SYSTEM', language: 'id-ID' };
     }
     return settings;
 };
 export const updateSettings = async (db, walletId, data) => {
-    await db.prepare(`INSERT INTO wallet_settings (wallet_id, start_of_month, theme) VALUES (?, ?, ?) ON CONFLICT(wallet_id) DO UPDATE SET start_of_month = excluded.start_of_month, theme = excluded.theme`).bind(walletId, data.start_of_month, data.theme).run();
+    await db.prepare(`INSERT INTO wallet_settings (wallet_id, start_of_month, theme, language) VALUES (?, ?, ?, ?) ON CONFLICT(wallet_id) DO UPDATE SET start_of_month = excluded.start_of_month, theme = excluded.theme, language = excluded.language`).bind(walletId, data.start_of_month, data.theme, data.language).run();
     return { wallet_id: walletId, ...data };
+};
+
+export const findRemindersByWalletId = async (db, walletId) => {
+    return (await db.prepare('SELECT * FROM reminders WHERE wallet_id = ? AND is_active = 1 ORDER BY reminder_date ASC').bind(walletId).all()).results;
+};
+export const createReminder = async (db, data) => {
+    const newId = `rem-${crypto.randomUUID()}`;
+    const amountInCents = data.amount ? Math.round(data.amount * 100) : null;
+    await db.prepare('INSERT INTO reminders (id, wallet_id, description, amount, reminder_date) VALUES (?, ?, ?, ?, ?)')
+        .bind(newId, data.wallet_id, data.description, amountInCents, data.reminder_date).run();
+    return { id: newId, ...data };
+};
+export const updateReminder = async (db, reminderId, data) => {
+    const amountInCents = data.amount ? Math.round(data.amount * 100) : null;
+    await db.prepare('UPDATE reminders SET description = ?, amount = ?, reminder_date = ?, is_active = ? WHERE id = ?')
+        .bind(data.description, amountInCents, data.reminder_date, data.is_active, reminderId).run();
+    return { id: reminderId, ...data };
+};
+export const deleteReminder = async (db, reminderId) => {
+    return await db.prepare('DELETE FROM reminders WHERE id = ?').bind(reminderId).run();
 };
