@@ -8,7 +8,7 @@ import { sendVerificationEmail } from '../lib/email.js'; // <-- Import service e
 
 const authRoutes = new Hono();
 
-// --- ENDPOINT REGISTRASI ---
+// --- ENDPOINT REGISTRASI MANUAL ---
 authRoutes.post('/register', async (c) => {
     const body = await c.req.json();
     if (body.password !== body.confirmPassword) {
@@ -53,7 +53,7 @@ authRoutes.post('/verify-email', async (c) => {
     return c.json({ success: true, message: 'Email verified successfully.' });
 });
 
-// ... (Endpoint /login, /google, dan /users/me biarkan sama persis seperti sebelumnya) ...
+// --- ENDPOINT LOGIN MANUAL ---
 authRoutes.post('/login', async (c) => {
     const { email, password } = await c.req.json();
     const user = await q.findUserByEmail(c.env.DB, email);
@@ -65,23 +65,56 @@ authRoutes.post('/login', async (c) => {
     const { hashed_password, ...userData } = user;
     return c.json({ success: true, data: { sessionToken, user: userData } });
 });
+
+// --- [BARU] ENDPOINT REGISTRASI/LOGIN VIA GOOGLE ---
 authRoutes.post('/google', async (c) => {
     const { googleToken } = await c.req.json();
-    if (!googleToken) { return c.json({ success: false, error: { message: 'Google token is required' } }, 400); }
-    const response = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${googleToken}`);
-    if (!response.ok) { return c.json({ success: false, error: { message: 'Invalid Google token' } }, 401); }
-    const googleUser = await response.json();
-    let user = await q.findUserByGoogleId(c.env.DB, googleUser.sub);
-    if (!user) { user = await q.createUserWithGoogle(c.env.DB, { google_id: googleUser.sub, full_name: googleUser.name, email: googleUser.email, avatar_url: googleUser.picture }); }
-    const sessionToken = await createSessionToken(c, user.id);
-    return c.json({ success: true, data: { sessionToken, user } });
+    if (!googleToken) {
+        return c.json({ success: false, error: { message: 'Google token is required' } }, 400);
+    }
+
+    try {
+        // Verifikasi token ke server Google
+        const response = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${googleToken}`);
+        if (!response.ok) {
+            return c.json({ success: false, error: { message: 'Invalid Google token' } }, 401);
+        }
+        const googleUser = await response.json();
+
+        // Cek apakah user sudah ada di database kita
+        let user = await q.findUserByGoogleId(c.env.DB, googleUser.sub);
+
+        // Jika tidak ada, buat user baru (Registrasi)
+        if (!user) {
+            const newUserPayload = {
+                google_id: googleUser.sub,
+                full_name: googleUser.name,
+                email: googleUser.email,
+                avatar_url: googleUser.picture
+            };
+            user = await q.createUserWithGoogle(c.env.DB, newUserPayload);
+        }
+
+        // Buat token sesi internal aplikasi kita
+        const sessionToken = await createSessionToken(c, user.id);
+        
+        // Hapus password hash (jika ada) sebelum mengirim data user
+        const { hashed_password, ...userData } = user;
+
+        return c.json({ success: true, data: { sessionToken, user: userData } });
+
+    } catch (error) {
+        console.error('Google auth error:', error);
+        return c.json({ success: false, error: { message: 'An error occurred during Google authentication.' } }, 500);
+    }
 });
+
+// --- ENDPOINT GET USER ---
 authRoutes.get('/users/me', protect, async (c) => {
   const userContext = c.get('user');
   const user = await c.env.DB.prepare('SELECT id, full_name, email, avatar_url, is_email_verified FROM users WHERE id = ?').bind(userContext.id).first();
   if (!user) { return c.json({ success: false, error: { message: 'User not found'}}, 404); }
   return c.json({ success: true, data: user });
 });
-
 
 export default authRoutes;

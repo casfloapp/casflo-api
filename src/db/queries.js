@@ -1,19 +1,40 @@
 // src/db/queries.js
 import bcrypt from 'bcryptjs';
 
-// --- [DIPERTAHANKAN] User & Verification Code Queries ---
+// --- [DIPERTAHANKAN & DILENGKAPI] User & Verification Code Queries ---
+
+/**
+ * Mencari user berdasarkan google_id unik mereka.
+ */
 export const findUserByGoogleId = async (db, googleId) => {
   return await db.prepare('SELECT * FROM users WHERE google_id = ?').bind(googleId).first();
 };
+
 export const findUserByEmail = async (db, email) => {
   return await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
 };
+
+/**
+ * Membuat user baru yang mendaftar via Google.
+ * Email dianggap sudah terverifikasi oleh Google.
+ */
 export const createUserWithGoogle = async (db, user) => {
   const newId = `us-${crypto.randomUUID()}`;
-  await db.prepare('INSERT INTO users (id, google_id, full_name, email, avatar_url, is_email_verified) VALUES (?, ?, ?, ?, ?, 1)')
-    .bind(newId, user.google_id, user.full_name, user.email, user.avatar_url).run();
-  return { id: newId, ...user };
+  
+  await db.prepare(
+    'INSERT INTO users (id, google_id, full_name, email, avatar_url, is_email_verified) VALUES (?, ?, ?, ?, ?, 1)'
+  ).bind(
+    newId, 
+    user.google_id, 
+    user.full_name, 
+    user.email, 
+    user.avatar_url
+  ).run();
+
+  // Kembalikan data user yang baru dibuat
+  return await db.prepare('SELECT * FROM users WHERE id = ?').bind(newId).first();
 };
+
 export const createUserWithPassword = async (db, userData) => {
     const existingUser = await findUserByEmail(db, userData.email);
     if (existingUser) {
@@ -27,17 +48,21 @@ export const createUserWithPassword = async (db, userData) => {
     const newUser = await db.prepare('SELECT id, full_name, email FROM users WHERE id = ?').bind(newId).first();
     return { data: newUser };
 };
+
 export const verifyUserEmail = async (db, email) => {
     return await db.prepare('UPDATE users SET is_email_verified = 1 WHERE email = ?').bind(email).run();
 };
+
 export const saveVerificationCode = async (db, email, code) => {
   const expires_at = new Date(Date.now() + 10 * 60 * 1000);
   return await db.prepare('INSERT OR REPLACE INTO verification_codes (email, code, expires_at) VALUES (?, ?, ?)')
     .bind(email, code, expires_at.toISOString()).run();
 };
+
 export const findVerificationCode = async (db, email) => {
   return await db.prepare('SELECT * FROM verification_codes WHERE email = ?').bind(email).first();
 };
+
 export const deleteVerificationCode = async (db, email) => {
   return await db.prepare('DELETE FROM verification_codes WHERE email = ?').bind(email).run();
 };
@@ -208,8 +233,6 @@ export const deleteTransaction = async (db, transactionId) => {
   await db.batch(batch);
   return { success: true };
 };
-// Catatan: updateTransaction sengaja tidak diimplementasikan karena kompleks.
-// Pola yang disarankan adalah delete-then-create di sisi frontend.
 
 // --- [DIUBAH TOTAL] Logika untuk Wallet Summary ---
 export const getWalletSummary = async (db, walletId) => {
