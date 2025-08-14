@@ -7,7 +7,7 @@ import * as q from '../db/queries.js'; // Mengimpor semua query dengan alias 'q'
 const walletRoutes = new Hono();
 walletRoutes.use('*', protect); // Lindungi semua rute
 
-// [DIPERTAHANKAN] Middleware untuk memeriksa keanggotaan wallet, sudah benar.
+// [DIPERTAHANKAN] Middleware untuk memeriksa kepemilikan/keanggotaan wallet
 const checkWalletMembership = async (c, next) => {
     const user = c.get('user');
     const { walletId } = c.req.param();
@@ -29,7 +29,6 @@ walletRoutes.post('/', async (c) => {
     const user = c.get('user');
     const body = await c.req.json();
     if (!body.name || !body.moduleType) { return c.json({ success: false, error: { message: 'Name and moduleType are required' } }, 400); }
-    // Query ini sudah diubah di queries.js untuk otomatis membuat akun default
     const newWallet = await q.createWalletWithMember(c.env.DB, body, user.id);
     return c.json({ success: true, data: newWallet }, 201);
 });
@@ -64,7 +63,6 @@ walletSpecificRoutes.delete('/', async (c) => {
 walletSpecificRoutes.get('/summary', async (c) => {
     const { walletId } = c.req.param();
     const summaryData = await q.getWalletSummary(c.env.DB, walletId);
-    // Konversi dari sen ke Rupiah sebelum dikirim
     const summaryInRupiah = {
         assets: (summaryData.assets || 0) / 100,
         liabilities: (summaryData.liabilities || 0) / 100,
@@ -112,8 +110,58 @@ reportRoutes.get('/expense-by-category', async (c) => {
     const reportInRupiah = reportData.map(item => ({ ...item, total_amount: item.total_amount / 100 }));
     return c.json({ success: true, data: reportInRupiah });
 });
-// Daftarkan rute laporan
 walletSpecificRoutes.route('/reports', reportRoutes);
+
+// --- [BARU] CRUD Anggaran (Budgeting) ---
+walletSpecificRoutes.get('/budgets', async (c) => {
+    const { walletId } = c.req.param();
+    const budgets = await q.findBudgetsByWalletId(c.env.DB, walletId);
+    const budgetsInRupiah = budgets.map(b => ({ ...b, amount: b.amount / 100 }));
+    return c.json({ success: true, data: budgetsInRupiah });
+});
+walletSpecificRoutes.post('/budgets', async (c) => {
+    const { walletId } = c.req.param();
+    const body = await c.req.json();
+    const newBudget = await q.createBudget(c.env.DB, { wallet_id: walletId, ...body });
+    return c.json({ success: true, data: newBudget }, 201);
+});
+walletSpecificRoutes.delete('/budgets/:budgetId', async (c) => {
+    const { budgetId } = c.req.param();
+    await q.deleteBudget(c.env.DB, budgetId);
+    return c.json({ success: true, message: 'Budget deleted successfully' });
+});
+
+// --- [BARU] CRUD Transaksi Berulang ---
+walletSpecificRoutes.get('/recurring-transactions', async (c) => {
+    const { walletId } = c.req.param();
+    const rts = await q.findRecurringTransactionsByWalletId(c.env.DB, walletId);
+    const rtsInRupiah = rts.map(rt => ({ ...rt, amount: rt.amount / 100 }));
+    return c.json({ success: true, data: rtsInRupiah });
+});
+walletSpecificRoutes.post('/recurring-transactions', async (c) => {
+    const { walletId } = c.req.param();
+    const body = await c.req.json();
+    const newRt = await q.createRecurringTransaction(c.env.DB, { wallet_id: walletId, ...body });
+    return c.json({ success: true, data: newRt }, 201);
+});
+walletSpecificRoutes.delete('/recurring-transactions/:rtId', async (c) => {
+    const { rtId } = c.req.param();
+    await q.deleteRecurringTransaction(c.env.DB, rtId);
+    return c.json({ success: true, message: 'Recurring transaction deleted successfully' });
+});
+
+// --- [BARU] Rute Pengaturan Wallet ---
+walletSpecificRoutes.get('/settings', async (c) => {
+    const { walletId } = c.req.param();
+    const settings = await q.findSettingsByWalletId(c.env.DB, walletId);
+    return c.json({ success: true, data: settings });
+});
+walletSpecificRoutes.put('/settings', async (c) => {
+    const { walletId } = c.req.param();
+    const body = await c.req.json();
+    const updatedSettings = await q.updateSettings(c.env.DB, walletId, body);
+    return c.json({ success: true, data: updatedSettings });
+});
 
 // --- [DIPERTAHANKAN] CRUD Kategori ---
 walletSpecificRoutes.get('/categories', async (c) => {
@@ -169,7 +217,7 @@ walletSpecificRoutes.get('/transactions', async (c) => {
     const { walletId } = c.req.param();
     const { startDate, endDate, accountId, categoryId } = c.req.query();
     const transactions = await q.findTransactionsByWalletId(c.env.DB, walletId, { startDate, endDate, accountId, categoryId });
-    const transactionsInRupiah = transactions.map(tx => ({...tx, amount: (tx.amount || 0) / 100, expense_amount: (tx.expense_amount || 0) / 100, income_amount: (tx.income_amount || 0) / 100 }));
+    const transactionsInRupiah = transactions.map(tx => ({...tx, amount: (tx.amount || 0) / 100 }));
     return c.json({ success: true, data: transactionsInRupiah });
 });
 walletSpecificRoutes.post('/transactions', async (c) => {
@@ -186,6 +234,8 @@ walletSpecificRoutes.delete('/transactions/:transactionId', async (c) => {
     if (result.error) { return c.json({ success: false, error: { message: result.error }}, 404); }
     return c.json({ success: true, message: 'Transaction deleted successfully' });
 });
+// Catatan: PUT /transactions/:transactionId sengaja tidak diimplementasikan karena kompleks.
+// Cara terbaik adalah dengan menghapus transaksi lama lalu membuat yang baru di sisi frontend.
 
 // --- [DIPERTAHANKAN] CRUD Anggota ---
 walletSpecificRoutes.get('/members', async (c) => {
@@ -205,6 +255,7 @@ walletSpecificRoutes.post('/members', async (c) => {
 walletSpecificRoutes.delete('/members/:userId', async (c) => {
     if (c.get('member').role !== 'OWNER') { return c.json({ success: false, error: { message: 'Forbidden: Only the owner can remove members.' } }, 403); }
     const { walletId, userId } = c.req.param();
+    if (c.get('user').id === userId) { return c.json({ success: false, error: { message: 'Owner cannot remove themselves.' } }, 400); }
     await q.removeWalletMember(c.env.DB, walletId, userId);
     return c.json({ success: true, message: 'Member removed successfully' });
 });
