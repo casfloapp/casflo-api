@@ -9,7 +9,7 @@ const app = new Hono().basePath('/api/v1');
 // Ini akan berlaku untuk semua rute di bawahnya
 app.use('*', cors({
   origin: [
-    'https://kaskita-6lx.pages.dev', // <-- Izinkan domain frontend produksi Anda
+    'https://app.casflo.id', // <-- Izinkan domain frontend produksi Anda
     'http://localhost:8787', // <-- Izinkan untuk testing lokal (opsional)
     'http://127.0.0.1:8787' // <-- Izinkan untuk testing lokal (opsional)
   ],
