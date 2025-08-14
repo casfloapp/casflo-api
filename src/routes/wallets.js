@@ -188,6 +188,33 @@ walletSpecificRoutes.delete('/reminders/:reminderId', async (c) => {
     return c.json({ success: true, message: 'Reminder deleted successfully' });
 });
 
+// --- [BARU] CRUD Catatan (Notes) ---
+walletSpecificRoutes.get('/notes', async (c) => {
+    const { walletId } = c.req.param();
+    const { date } = c.req.query(); // Filter berdasarkan tanggal
+    const notes = await q.findNotesByWalletId(c.env.DB, walletId, { date });
+    return c.json({ success: true, data: notes });
+});
+walletSpecificRoutes.post('/notes', async (c) => {
+    const user = c.get('user');
+    const { walletId } = c.req.param();
+    const body = await c.req.json();
+    const newNote = await q.createNote(c.env.DB, { wallet_id: walletId, ...body }, user.id);
+    return c.json({ success: true, data: newNote }, 201);
+});
+walletSpecificRoutes.put('/notes/:noteId', async (c) => {
+    const user = c.get('user');
+    const { noteId } = c.req.param();
+    const body = await c.req.json();
+    const updatedNote = await q.updateNote(c.env.DB, noteId, body, user.id);
+    return c.json({ success: true, data: updatedNote });
+});
+walletSpecificRoutes.delete('/notes/:noteId', async (c) => {
+    const { noteId } = c.req.param();
+    await q.deleteNote(c.env.DB, noteId);
+    return c.json({ success: true, message: 'Note deleted successfully' });
+});
+
 // --- [DIPERTAHANKAN] CRUD Kategori ---
 walletSpecificRoutes.get('/categories', async (c) => {
     const { walletId } = c.req.param();

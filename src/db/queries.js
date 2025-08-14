@@ -208,6 +208,8 @@ export const deleteTransaction = async (db, transactionId) => {
   await db.batch(batch);
   return { success: true };
 };
+// Catatan: updateTransaction sengaja tidak diimplementasikan karena kompleks.
+// Pola yang disarankan adalah delete-then-create di sisi frontend.
 
 // --- [DIUBAH TOTAL] Logika untuk Wallet Summary ---
 export const getWalletSummary = async (db, walletId) => {
@@ -299,4 +301,30 @@ export const updateReminder = async (db, reminderId, data) => {
 };
 export const deleteReminder = async (db, reminderId) => {
     return await db.prepare('DELETE FROM reminders WHERE id = ?').bind(reminderId).run();
+};
+
+// --- [BARU] CRUD untuk Catatan (Notes) ---
+export const findNotesByWalletId = async (db, walletId, filters = {}) => {
+    let query = 'SELECT * FROM notes WHERE wallet_id = ?';
+    const params = [walletId];
+    if (filters.date) {
+        query += ' AND note_date = ?';
+        params.push(filters.date);
+    }
+    query += ' ORDER BY note_date DESC';
+    return (await db.prepare(query).bind(...params).all()).results;
+};
+export const createNote = async (db, data, userId) => {
+    const newId = `note-${crypto.randomUUID()}`;
+    await db.prepare('INSERT INTO notes (id, wallet_id, title, content, note_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(newId, data.wallet_id, data.title, data.content, data.note_date, userId).run();
+    return { id: newId, ...data };
+};
+export const updateNote = async (db, noteId, data, userId) => {
+    await db.prepare('UPDATE notes SET title = ?, content = ?, note_date = ?, updated_at = datetime("now","localtime"), updated_by = ? WHERE id = ?')
+        .bind(data.title, data.content, data.note_date, userId, noteId).run();
+    return { id: noteId, ...data };
+};
+export const deleteNote = async (db, noteId) => {
+    return await db.prepare('DELETE FROM notes WHERE id = ?').bind(noteId).run();
 };
