@@ -8,7 +8,7 @@ import { sendVerificationEmail } from '../lib/email.js';
 
 const authRoutes = new Hono();
 
-// --- ENDPOINT REGISTRASI & LOGIN MANUAL (TIDAK BERUBAH) ---
+// --- ENDPOINT REGISTRASI & LOGIN MANUAL (DARI KODE PRODUCTION ANDA) ---
 authRoutes.post('/register', async (c) => {
     const body = await c.req.json();
     if (body.password !== body.confirmPassword) {
@@ -18,9 +18,14 @@ authRoutes.post('/register', async (c) => {
     if (error) {
         return c.json({ success: false, error: { message: error } }, 409);
     }
+    
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     await q.saveVerificationCode(c.env.DB, newUser.email, verificationCode);
-    await sendVerificationEmail(c, { to: newUser.email, code: verificationCode });
+    const emailResult = await sendVerificationEmail(c, { to: newUser.email, code: verificationCode });
+    if (!emailResult.success) {
+        console.error('Registration successful, but OTP email failed to send.');
+    }
+
     return c.json({ 
         success: true, 
         message: 'Registration successful. Please check your email to verify your account.',
@@ -31,11 +36,14 @@ authRoutes.post('/register', async (c) => {
 authRoutes.post('/verify-email', async (c) => {
     const { email, code } = await c.req.json();
     const stored = await q.findVerificationCode(c.env.DB, email);
+
     if (!stored || stored.code !== code || new Date(stored.expires_at) < new Date()) {
         return c.json({ success: false, error: { message: 'Invalid or expired verification code.' } }, 400);
     }
-    await q.verifyUserEmail(c.env.DB, email);
+
+    await q.verifyUserEmail(c.env.DB, stored.email);
     await q.deleteVerificationCode(c.env.DB, email);
+
     return c.json({ success: true, message: 'Email verified successfully.' });
 });
 
@@ -50,7 +58,6 @@ authRoutes.post('/login', async (c) => {
     const { hashed_password, ...userData } = user;
     return c.json({ success: true, data: { sessionToken, user: userData } });
 });
-
 
 // --- [DIUBAH TOTAL] ALUR OTENTIKASI GOOGLE (REDIRECT) ---
 
@@ -137,7 +144,7 @@ authRoutes.get('/google/callback', async (c) => {
 });
 
 
-// --- ENDPOINT GET USER (TIDAK BERUBAH) ---
+// --- ENDPOINT GET USER (DARI KODE PRODUCTION ANDA) ---
 authRoutes.get('/users/me', protect, async (c) => {
   const userContext = c.get('user');
   const user = await c.env.DB.prepare('SELECT id, full_name, email, avatar_url, is_email_verified FROM users WHERE id = ?').bind(userContext.id).first();
