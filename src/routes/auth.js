@@ -59,6 +59,7 @@ authRoutes.post('/login', async (c) => {
     return c.json({ success: true, data: { sessionToken, user: userData } });
 });
 
+
 // --- [DIUBAH TOTAL] ALUR OTENTIKASI GOOGLE (REDIRECT) ---
 
 // Endpoint #1: Memulai proses login Google
