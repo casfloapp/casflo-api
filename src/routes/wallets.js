@@ -110,6 +110,14 @@ reportRoutes.get('/expense-by-category', async (c) => {
     const reportInRupiah = reportData.map(item => ({ ...item, total_amount: item.total_amount / 100 }));
     return c.json({ success: true, data: reportInRupiah });
 });
+reportRoutes.get('/recommendations/category', async (c) => {
+    const { walletId } = c.req.param();
+    const { description } = c.req.query();
+    
+    const recommendations = await q.getCategoryRecommendations(c.env.DB, walletId, description);
+    
+    return c.json({ success: true, data: recommendations });
+});
 walletSpecificRoutes.route('/reports', reportRoutes);
 
 // --- [BARU] CRUD Anggaran (Budgeting) ---
@@ -187,7 +195,37 @@ walletSpecificRoutes.delete('/reminders/:reminderId', async (c) => {
     await q.deleteReminder(c.env.DB, reminderId);
     return c.json({ success: true, message: 'Reminder deleted successfully' });
 });
+// --- [BARU] CRUD Tujuan Tabungan (Goals) ---
+walletSpecificRoutes.get('/goals', async (c) => {
+    const { walletId } = c.req.param();
+    const goals = await q.findGoalsByWalletId(c.env.DB, walletId);
+    const goalsInRupiah = goals.map(g => ({ 
+        ...g, 
+        target_amount: g.target_amount / 100,
+        current_amount: g.current_amount / 100
+    }));
+    return c.json({ success: true, data: goalsInRupiah });
+});
 
+walletSpecificRoutes.post('/goals', async (c) => {
+    const { walletId } = c.req.param();
+    const body = await c.req.json();
+    const newGoal = await q.createGoal(c.env.DB, { wallet_id: walletId, ...body });
+    return c.json({ success: true, data: newGoal }, 201);
+});
+
+walletSpecificRoutes.put('/goals/:goalId', async (c) => {
+    const { goalId } = c.req.param();
+    const body = await c.req.json();
+    const updatedGoal = await q.updateGoal(c.env.DB, goalId, body);
+    return c.json({ success: true, data: updatedGoal });
+});
+
+walletSpecificRoutes.delete('/goals/:goalId', async (c) => {
+    const { goalId } = c.req.param();
+    await q.deleteGoal(c.env.DB, goalId);
+    return c.json({ success: true, message: 'Goal deleted successfully' });
+});
 // --- [BARU] CRUD Catatan (Notes) ---
 walletSpecificRoutes.get('/notes', async (c) => {
     const { walletId } = c.req.param();
@@ -213,6 +251,20 @@ walletSpecificRoutes.delete('/notes/:noteId', async (c) => {
     const { noteId } = c.req.param();
     await q.deleteNote(c.env.DB, noteId);
     return c.json({ success: true, message: 'Note deleted successfully' });
+});
+
+// --- [BARU] Endpoint untuk Ekspor Data ---
+walletSpecificRoutes.get('/export/csv', async (c) => {
+    const { walletId } = c.req.param();
+    const wallet = await q.findWalletById(c.env.DB, walletId);
+    
+    const csvData = await q.exportTransactionsAsCSV(c.env.DB, walletId);
+    
+    // Atur header agar browser mengunduh file
+    c.header('Content-Type', 'text/csv; charset=utf-8');
+    c.header('Content-Disposition', `attachment; filename="casflo-export-${wallet.name.replace(/\s+/g, '-')}.csv"`);
+    
+    return c.body(csvData);
 });
 
 // --- [DIPERTAHANKAN] CRUD Kategori ---

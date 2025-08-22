@@ -296,14 +296,50 @@ export const deleteRecurringTransaction = async (db, rtId) => {
 
 export const findSettingsByWalletId = async (db, walletId) => {
     let settings = await db.prepare('SELECT * FROM wallet_settings WHERE wallet_id = ?').bind(walletId).first();
+    // Jika belum ada setting, kembalikan nilai default
     if (!settings) {
-        return { wallet_id: walletId, start_of_month: 1, theme: 'SYSTEM', language: 'id-ID' };
+        return { 
+            wallet_id: walletId, 
+            start_of_month: 1, 
+            theme: 'SYSTEM', 
+            language: 'id-ID',
+            // Nilai default untuk kolom baru
+            button_position: 'bottom_right',
+            calculator_layout: 'default',
+            sound_effects_enabled: 1,
+            haptic_feedback_enabled: 1
+        };
     }
     return settings;
 };
 export const updateSettings = async (db, walletId, data) => {
-    await db.prepare(`INSERT INTO wallet_settings (wallet_id, start_of_month, theme, language) VALUES (?, ?, ?, ?) ON CONFLICT(wallet_id) DO UPDATE SET start_of_month = excluded.start_of_month, theme = excluded.theme, language = excluded.language`).bind(walletId, data.start_of_month, data.theme, data.language).run();
-    return { wallet_id: walletId, ...data };
+    // Ambil pengaturan saat ini untuk mengisi nilai yang mungkin tidak dikirim dari frontend
+    const currentSettings = await findSettingsByWalletId(db, walletId);
+    const newSettings = { ...currentSettings, ...data };
+
+    await db.prepare(`
+        INSERT INTO wallet_settings (wallet_id, start_of_month, theme, language, button_position, calculator_layout, sound_effects_enabled, haptic_feedback_enabled) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(wallet_id) DO UPDATE SET
+        start_of_month = excluded.start_of_month,
+        theme = excluded.theme,
+        language = excluded.language,
+        button_position = excluded.button_position,
+        calculator_layout = excluded.calculator_layout,
+        sound_effects_enabled = excluded.sound_effects_enabled,
+        haptic_feedback_enabled = excluded.haptic_feedback_enabled
+    `).bind(
+        walletId, 
+        newSettings.start_of_month, 
+        newSettings.theme, 
+        newSettings.language,
+        newSettings.button_position,
+        newSettings.calculator_layout,
+        newSettings.sound_effects_enabled,
+        newSettings.haptic_feedback_enabled
+    ).run();
+    
+    return { wallet_id: walletId, ...newSettings };
 };
 
 export const findRemindersByWalletId = async (db, walletId) => {
@@ -326,6 +362,67 @@ export const deleteReminder = async (db, reminderId) => {
     return await db.prepare('DELETE FROM reminders WHERE id = ?').bind(reminderId).run();
 };
 
+// --- [BARU] CRUD untuk Tujuan Tabungan (Goals) ---
+export const findGoalsByWalletId = async (db, walletId) => {
+    return (await db.prepare('SELECT * FROM goals WHERE wallet_id = ? ORDER BY created_at DESC').bind(walletId).all()).results;
+};
+
+export const createGoal = async (db, data) => {
+    const newId = `goal-${crypto.randomUUID()}`;
+    const targetAmountInCents = Math.round(data.target_amount * 100);
+
+    await db.prepare('INSERT INTO goals (id, wallet_id, name, target_amount, target_date, icon) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(newId, data.wallet_id, data.name, targetAmountInCents, data.target_date, data.icon).run();
+    
+    return { id: newId, ...data };
+};
+
+export const updateGoal = async (db, goalId, data) => {
+    // Fungsi ini bisa untuk mengubah nama, atau menambah/mengurangi 'current_amount'
+    const currentAmountInCents = Math.round(data.current_amount * 100);
+    const targetAmountInCents = Math.round(data.target_amount * 100);
+
+    await db.prepare('UPDATE goals SET name = ?, target_amount = ?, current_amount = ?, target_date = ?, icon = ?, is_achieved = ? WHERE id = ?')
+        .bind(data.name, targetAmountInCents, currentAmountInCents, data.target_date, data.icon, data.is_achieved, goalId).run();
+        
+    return { id: goalId, ...data };
+};
+
+export const deleteGoal = async (db, goalId) => {
+    return await db.prepare('DELETE FROM goals WHERE id = ?').bind(goalId).run();
+};
+// --- [BARU] Fungsi untuk Rekomendasi Cerdas ---
+export const getCategoryRecommendations = async (db, walletId, description) => {
+    if (!description || description.trim() === '') {
+        return [];
+    }
+    // Cari kata kunci dari deskripsi
+    const keywords = description.toLowerCase().split(' ').filter(word => word.length > 2);
+    
+    // Buat klausa WHERE dinamis untuk mencari transaksi lampau yang cocok
+    const whereClauses = keywords.map(() => 'LOWER(t.description) LIKE ?').join(' OR ');
+
+    const query = `
+        SELECT 
+            c.id, 
+            c.name,
+            c.type,
+            COUNT(c.id) as frequency
+        FROM transactions t
+        JOIN transaction_splits s ON t.id = s.transaction_id
+        JOIN categories c ON s.category_id = c.id
+        WHERE 
+            t.wallet_id = ? AND (${whereClauses})
+        GROUP BY c.id
+        ORDER BY frequency DESC
+        LIMIT 5
+    `;
+
+    // Siapkan parameter, setiap kata kunci dibungkus dengan wildcard '%'
+    const params = [walletId, ...keywords.map(kw => `%${kw}%`)];
+
+    return (await db.prepare(query).bind(...params).all()).results;
+};
 // --- [BARU] CRUD untuk Catatan (Notes) ---
 export const findNotesByWalletId = async (db, walletId, filters = {}) => {
     let query = 'SELECT * FROM notes WHERE wallet_id = ?';
@@ -350,4 +447,46 @@ export const updateNote = async (db, noteId, data, userId) => {
 };
 export const deleteNote = async (db, noteId) => {
     return await db.prepare('DELETE FROM notes WHERE id = ?').bind(noteId).run();
+};
+// --- [BARU] Fungsi untuk Ekspor Data ---
+export const exportTransactionsAsCSV = async (db, walletId) => {
+    // Query untuk mengambil semua data yang relevan
+    const { results } = await db.prepare(`
+        SELECT 
+            t.transaction_date,
+            t.description,
+            c.name as category_name,
+            c.type as category_type,
+            a.name as account_name,
+            s.amount
+        FROM transactions t
+        JOIN transaction_splits s ON t.id = s.transaction_id
+        JOIN accounts a ON s.account_id = a.id
+        LEFT JOIN categories c ON s.category_id = c.id
+        WHERE t.wallet_id = ?
+        ORDER BY t.transaction_date DESC
+    `).bind(walletId).all();
+
+    if (!results || results.length === 0) {
+        return "Tanggal,Deskripsi,Kategori,Tipe,Akun,Pemasukan,Pengeluaran\nTidak ada data untuk diekspor.";
+    }
+
+    // Buat header CSV
+    let csvContent = "Tanggal,Deskripsi,Kategori,Tipe,Akun,Pemasukan,Pengeluaran\n";
+
+    // Tambahkan baris data
+    results.forEach(row => {
+        const date = row.transaction_date;
+        const description = `"${row.description || ''}"`;
+        const category = `"${row.category_name || 'Transfer'}"`;
+        const type = `"${row.category_type || 'TRANSFER'}"`;
+        const account = `"${row.account_name}"`;
+        // Pisahkan amount ke kolom Pemasukan atau Pengeluaran
+        const income = row.amount > 0 ? row.amount / 100 : 0;
+        const expense = row.amount < 0 ? -row.amount / 100 : 0;
+
+        csvContent += `${date},${description},${category},${type},${account},${income},${expense}\n`;
+    });
+
+    return csvContent;
 };
