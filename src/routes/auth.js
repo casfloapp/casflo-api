@@ -47,6 +47,35 @@ authRoutes.post('/verify-email', async (c) => {
     return c.json({ success: true, message: 'Email verified successfully.' });
 });
 
+// [BARU] Endpoint untuk mengirim ulang kode verifikasi
+authRoutes.post('/resend-verification', async (c) => {
+    const { email } = await c.req.json();
+    if (!email) {
+        return c.json({ success: false, error: { message: 'Email is required.' } }, 400);
+    }
+
+    // Cek apakah pengguna ada
+    const user = await q.findUserByEmail(c.env.DB, email);
+    if (!user) {
+        // Untuk keamanan, kita tidak memberitahu jika email tidak terdaftar
+        // Kita tetap kirim respons sukses agar penyerang tidak bisa menebak email
+        return c.json({ success: true, message: 'If a user with this email exists, a new code has been sent.' });
+    }
+
+    // Buat kode baru, simpan, dan kirim email (logika yang sama seperti /register)
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    await q.saveVerificationCode(c.env.DB, user.email, verificationCode);
+    const emailResult = await sendVerificationEmail(c, { to: user.email, code: verificationCode });
+
+    if (!emailResult.success) {
+        console.error('Failed to resend OTP email.');
+        return c.json({ success: false, error: { message: 'Failed to send email. Please try again later.' } }, 500);
+    }
+
+    return c.json({ success: true, message: 'A new verification code has been sent.' });
+});
+
+
 authRoutes.post('/login', async (c) => {
     const { email, password } = await c.req.json();
     const user = await q.findUserByEmail(c.env.DB, email);
