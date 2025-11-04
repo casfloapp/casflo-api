@@ -8,7 +8,7 @@ import { sendVerificationEmail } from '../lib/email.js';
 
 const authRoutes = new Hono();
 
-// --- ENDPOINT REGISTRASI & LOGIN MANUAL (DARI KODE PRODUCTION ANDA) ---
+// --- ENDPOINT REGISTRASI & LOGIN MANUAL ---
 authRoutes.post('/register', async (c) => {
     const body = await c.req.json();
     if (body.password !== body.confirmPassword) {
@@ -57,12 +57,11 @@ authRoutes.post('/resend-verification', async (c) => {
     // Cek apakah pengguna ada
     const user = await q.findUserByEmail(c.env.DB, email);
     if (!user) {
-        // Untuk keamanan, kita tidak memberitahu jika email tidak terdaftar
-        // Kita tetap kirim respons sukses agar penyerang tidak bisa menebak email
+        // Keamanan: Jangan beritahu jika email tidak ada.
         return c.json({ success: true, message: 'If a user with this email exists, a new code has been sent.' });
     }
     
-    // [PERBAIKAN] Cek jika email sudah terverifikasi
+    // Cek jika email sudah terverifikasi
     if (user.is_email_verified) {
         return c.json({ success: false, error: { message: 'Email is already verified.' } }, 400);
     }
@@ -94,10 +93,11 @@ authRoutes.post('/login', async (c) => {
 });
 
 
-// --- [DIUBAH TOTAL] ALUR OTENTIKASI GOOGLE (REDIRECT) ---
-
-// Endpoint #1: Memulai proses login Google
+// --- ALUR OTENTIKASI GOOGLE ---
 authRoutes.get('/google', async (c) => {
+    // ... (kode Anda yang sudah ada)
+// ... (sisa kode /google dan /google/callback Anda)
+// ...
     const googleClientId = c.env.GOOGLE_CLIENT_ID;
     if (!googleClientId) {
         return c.json({ success: false, error: { message: 'Google Client ID not configured.' } }, 500);
@@ -111,11 +111,9 @@ authRoutes.get('/google', async (c) => {
     authUrl.searchParams.set('scope', 'openid profile email');
     authUrl.searchParams.set('prompt', 'select_account');
 
-    // Alihkan pengguna ke halaman login Google
     return c.redirect(authUrl.toString());
 });
 
-// Endpoint #2: Callback yang dipanggil oleh Google
 authRoutes.get('/google/callback', async (c) => {
     const { code } = c.req.query();
     const redirectUri = 'https://api.casflo.id/api/v1/auth/google/callback';
@@ -125,7 +123,6 @@ authRoutes.get('/google/callback', async (c) => {
     }
 
     try {
-        // Tukarkan 'code' dengan 'id_token'
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -146,7 +143,6 @@ authRoutes.get('/google/callback', async (c) => {
         const tokenData = await tokenResponse.json();
         const idToken = tokenData.id_token;
 
-        // Verifikasi id_token untuk mendapatkan info user
         const userInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${idToken}`);
         if (!userInfoResponse.ok) {
             throw new Error('Failed to verify ID token.');
@@ -154,7 +150,6 @@ authRoutes.get('/google/callback', async (c) => {
         
         const googleUser = await userInfoResponse.json();
 
-        // Cari atau buat user baru di database
         let user = await q.findUserByGoogleId(c.env.DB, googleUser.sub);
         if (!user) {
             const newUserPayload = {
@@ -166,10 +161,7 @@ authRoutes.get('/google/callback', async (c) => {
             user = await q.createUserWithGoogle(c.env.DB, newUserPayload);
         }
 
-        // Buat token sesi internal Casflo
         const sessionToken = await createSessionToken(c, user.id);
-
-        // Alihkan kembali ke frontend dengan membawa token
         return c.redirect(`https://app.casflo.id/auth/callback?token=${sessionToken}`);
 
     } catch (error) {
@@ -179,7 +171,7 @@ authRoutes.get('/google/callback', async (c) => {
 });
 
 
-// --- ENDPOINT GET USER (DARI KODE PRODUCTION ANDA) ---
+// --- ENDPOINT GET USER ---
 authRoutes.get('/users/me', protect, async (c) => {
   const userContext = c.get('user');
   const user = await c.env.DB.prepare('SELECT id, full_name, email, avatar_url, is_email_verified FROM users WHERE id = ?').bind(userContext.id).first();
