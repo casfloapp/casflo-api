@@ -61,6 +61,11 @@ authRoutes.post('/resend-verification', async (c) => {
         // Kita tetap kirim respons sukses agar penyerang tidak bisa menebak email
         return c.json({ success: true, message: 'If a user with this email exists, a new code has been sent.' });
     }
+    
+    // [PERBAIKAN] Cek jika email sudah terverifikasi
+    if (user.is_email_verified) {
+        return c.json({ success: false, error: { message: 'Email is already verified.' } }, 400);
+    }
 
     // Buat kode baru, simpan, dan kirim email (logika yang sama seperti /register)
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -183,3 +188,4 @@ authRoutes.get('/users/me', protect, async (c) => {
 });
 
 export default authRoutes;
+
