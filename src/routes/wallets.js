@@ -64,11 +64,11 @@ walletSpecificRoutes.get('/summary', async (c) => {
     const { walletId } = c.req.param();
     const summaryData = await q.getWalletSummary(c.env.DB, walletId);
     const summaryInRupiah = {
-        assets: (summaryData.assets || 0) / 100,
-        liabilities: (summaryData.liabilities || 0) / 100,
-        net_worth: (summaryData.net_worth || 0) / 100,
-        monthly_income: (summaryData.monthly_income || 0) / 100,
-        monthly_expense: (summaryData.monthly_expense || 0) / 100,
+        assets: (summaryData.assets || 0), // <-- Hapus / 100
+        liabilities: (summaryData.liabilities || 0), // <-- Hapus / 100
+        net_worth: (summaryData.net_worth || 0), // <-- Hapus / 100
+        monthly_income: (summaryData.monthly_income || 0), // <-- Hapus / 100
+        monthly_expense: (summaryData.monthly_expense || 0), // <-- Hapus / 100
     };
     return c.json({ success: true, data: summaryInRupiah });
 });
@@ -77,8 +77,8 @@ walletSpecificRoutes.get('/summary', async (c) => {
 walletSpecificRoutes.get('/accounts', async (c) => {
     const { walletId } = c.req.param();
     const accounts = await q.findAccountsByWalletId(c.env.DB, walletId);
-    const accountsInRupiah = accounts.map(acc => ({...acc, balance: acc.balance / 100}));
-    return c.json({ success: true, data: accountsInRupiah });
+    // [PERBAIKAN] Hapus konversi sen
+    return c.json({ success: true, data: accounts });
 });
 walletSpecificRoutes.post('/accounts', async (c) => {
     const { walletId } = c.req.param();
@@ -107,8 +107,8 @@ reportRoutes.get('/expense-by-category', async (c) => {
     const { walletId } = c.req.param();
     const { startDate, endDate } = c.req.query();
     const reportData = await q.getExpenseReportByCategory(c.env.DB, walletId, { startDate, endDate });
-    const reportInRupiah = reportData.map(item => ({ ...item, total_amount: item.total_amount / 100 }));
-    return c.json({ success: true, data: reportInRupiah });
+    // [PERBAIKAN] Hapus konversi sen
+    return c.json({ success: true, data: reportData });
 });
 reportRoutes.get('/recommendations/category', async (c) => {
     const { walletId } = c.req.param();
@@ -124,7 +124,6 @@ walletSpecificRoutes.route('/reports', reportRoutes);
 walletSpecificRoutes.get('/budgets', async (c) => {
     const { walletId } = c.req.param();
     const budgets = await q.findBudgetsByWalletId(c.env.DB, walletId);
-    const budgetsInRupiah = budgets.map(b => ({ ...b, amount: b.amount / 100 }));
     return c.json({ success: true, data: budgetsInRupiah });
 });
 walletSpecificRoutes.post('/budgets', async (c) => {
@@ -143,7 +142,6 @@ walletSpecificRoutes.delete('/budgets/:budgetId', async (c) => {
 walletSpecificRoutes.get('/recurring-transactions', async (c) => {
     const { walletId } = c.req.param();
     const rts = await q.findRecurringTransactionsByWalletId(c.env.DB, walletId);
-    const rtsInRupiah = rts.map(rt => ({ ...rt, amount: rt.amount / 100 }));
     return c.json({ success: true, data: rtsInRupiah });
 });
 walletSpecificRoutes.post('/recurring-transactions', async (c) => {
@@ -175,7 +173,6 @@ walletSpecificRoutes.put('/settings', async (c) => {
 walletSpecificRoutes.get('/reminders', async (c) => {
     const { walletId } = c.req.param();
     const reminders = await q.findRemindersByWalletId(c.env.DB, walletId);
-    const remindersInRupiah = reminders.map(r => ({ ...r, amount: r.amount ? r.amount / 100 : null }));
     return c.json({ success: true, data: remindersInRupiah });
 });
 walletSpecificRoutes.post('/reminders', async (c) => {
@@ -199,12 +196,8 @@ walletSpecificRoutes.delete('/reminders/:reminderId', async (c) => {
 walletSpecificRoutes.get('/goals', async (c) => {
     const { walletId } = c.req.param();
     const goals = await q.findGoalsByWalletId(c.env.DB, walletId);
-    const goalsInRupiah = goals.map(g => ({ 
-        ...g, 
-        target_amount: g.target_amount / 100,
-        current_amount: g.current_amount / 100
-    }));
-    return c.json({ success: true, data: goalsInRupiah });
+    // [PERBAIKAN] Hapus konversi sen
+    return c.json({ success: true, data: goals });
 });
 
 walletSpecificRoutes.post('/goals', async (c) => {

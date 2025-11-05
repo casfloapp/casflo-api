@@ -217,6 +217,7 @@ export const findTransactionsByWalletId = async (db, walletId, filters = {}) => 
       t.created_at,
       c.name as category_name,
       c.type as category_type,  -- <-- [FIX 1] Ambil tipe kategori
+      c.icon as category_icon,  -- <-- [PERBAIKAN] Tambahkan baris ini
       s.amount,                 -- <-- [FIX 2] Ambil jumlah (amount) asli dalam SEN
       a.name as account_name    -- <-- [FIX 3] Ambil nama akun
     FROM transactions t
