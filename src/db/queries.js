@@ -231,7 +231,7 @@ export const createTransaction = async (db, data, userId) => {
   const newTxId = `tx-${crypto.randomUUID()}`;
   const batch = [
     db.prepare('INSERT INTO transactions (id, wallet_id, contact_id, description, transaction_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(newTxId, data.wallet_id, data.contact_id, data.description, data.transaction_date, userId)
+      .bind(newTxId, data.wallet_id, data.contact_id || null, data.description, data.transaction_date, userId) // <-- [PERBAIKAN] Tambahkan '|| null'
   ];
   if (data.type === 'EXPENSE') {
     batch.push(db.prepare("INSERT INTO transaction_splits (id, transaction_id, category_id, amount, type) VALUES (?, ?, ?, ?, 'DEBIT')").bind(`spl-${crypto.randomUUID()}`, newTxId, data.category_id, amountInCents));
