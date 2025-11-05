@@ -228,26 +228,69 @@ export const findTransactionsByWalletId = async (db, walletId, filters = {}) => 
 export const createTransaction = async (db, data, userId) => {
   const amountInCents = Math.round(data.amount * 100);
   if (!amountInCents || amountInCents <= 0) return { error: 'Invalid amount' };
+  
   const newTxId = `tx-${crypto.randomUUID()}`;
+  
+  // [PERBAIKAN] 'contact_id || null' sudah benar
   const batch = [
-   // BARIS PERBAIKAN:
-  db.prepare('INSERT INTO transactions (id, wallet_id, contact_id, description, transaction_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(newTxId, data.wallet_id, data.contact_id || null, data.description, data.transaction_date, userId) // <-- PASTIKAN ANDA MENAMBAH '|| null'  
+    db.prepare('INSERT INTO transactions (id, wallet_id, contact_id, description, transaction_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(newTxId, data.wallet_id, data.contact_id || null, data.description, data.transaction_date, userId)
   ];
+
+  // [PERBAIKAN KUNCI] Semua INSERT ke 'transaction_splits' harus mencantumkan 6 kolom
+  const sqlInsertSplit = `
+    INSERT INTO transaction_splits 
+    (id, transaction_id, account_id, category_id, amount, type) 
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
   if (data.type === 'EXPENSE') {
-    batch.push(db.prepare("INSERT INTO transaction_splits (id, transaction_id, category_id, amount, type) VALUES (?, ?, ?, ?, 'DEBIT')").bind(`spl-${crypto.randomUUID()}`, newTxId, data.category_id, amountInCents));
-    batch.push(db.prepare("INSERT INTO transaction_splits (id, transaction_id, account_id, amount, type) VALUES (?, ?, ?, ?, 'CREDIT')").bind(`spl-${crypto.randomUUID()}`, newTxId, data.from_account_id, -amountInCents));
+    // Split 1: DEBIT (positif) ke Kategori, terkait dengan akun sumber
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, newTxId, data.from_account_id, data.category_id, amountInCents, 'DEBIT')
+    );
+    // Split 2: CREDIT (negatif) dari Akun, tidak ada kategori
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, newTxId, data.from_account_id, null, -amountInCents, 'CREDIT')
+    );
+    // Update Saldo
     batch.push(db.prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?").bind(amountInCents, data.from_account_id));
+  
   } else if (data.type === 'INCOME') {
-    batch.push(db.prepare("INSERT INTO transaction_splits (id, transaction_id, account_id, amount, type) VALUES (?, ?, ?, ?, 'DEBIT')").bind(`spl-${crypto.randomUUID()}`, newTxId, data.to_account_id, amountInCents));
-    batch.push(db.prepare("INSERT INTO transaction_splits (id, transaction_id, category_id, amount, type) VALUES (?, ?, ?, ?, 'CREDIT')").bind(`spl-${crypto.randomUUID()}`, newTxId, data.category_id, -amountInCents));
+    // Split 1: DEBIT (positif) ke Akun, tidak ada kategori
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, newTxId, data.to_account_id, null, amountInCents, 'DEBIT')
+    );
+    // Split 2: CREDIT (negatif) ke Kategori, terkait dengan akun tujuan
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, newTxId, data.to_account_id, data.category_id, -amountInCents, 'CREDIT')
+    );
+    // Update Saldo
     batch.push(db.prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?").bind(amountInCents, data.to_account_id));
+  
   } else if (data.type === 'TRANSFER') {
-    batch.push(db.prepare("INSERT INTO transaction_splits (id, transaction_id, account_id, amount, type) VALUES (?, ?, ?, ?, 'DEBIT')").bind(`spl-${crypto.randomUUID()}`, newTxId, data.to_account_id, amountInCents));
-    batch.push(db.prepare("INSERT INTO transaction_splits (id, transaction_id, account_id, amount, type) VALUES (?, ?, ?, ?, 'CREDIT')").bind(`spl-${crypto.randomUUID()}`, newTxId, data.from_account_id, -amountInCents));
+    // Split 1: DEBIT (positif) ke Akun Tujuan
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, newTxId, data.to_account_id, null, amountInCents, 'DEBIT')
+    );
+    // Split 2: CREDIT (negatif) dari Akun Sumber
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, newTxId, data.from_account_id, null, -amountInCents, 'CREDIT')
+    );
+    // Update Saldo (Kedua akun)
     batch.push(db.prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?").bind(amountInCents, data.to_account_id));
     batch.push(db.prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?").bind(amountInCents, data.from_account_id));
-  } else { return { error: 'Invalid transaction type' }; }
+  
+  } else { 
+    return { error: 'Invalid transaction type' }; 
+  }
+  
   await db.batch(batch);
   return { id: newTxId, ...data };
 };
