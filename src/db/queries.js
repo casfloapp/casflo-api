@@ -3,26 +3,27 @@ import bcrypt from 'bcryptjs';
 
 // --- [DIPERTAHANKAN & DILENGKAPI] User & Verification Code Queries ---
 // [BARU] Tambahkan daftar kategori default di sini
+// [BARU] Tambahkan daftar kategori default di sini
 const DEFAULT_CATEGORIES = [
   // Pengeluaran
-  { name: 'Makanan & Minuman', type: 'EXPENSE' },
-  { name: 'Transportasi', type: 'EXPENSE' },
-  { name: 'Tagihan', type: 'EXPENSE' },
-  { name: 'Belanja', type: 'EXPENSE' },
-  { name: 'Hiburan', type: 'EXPENSE' },
-  { name: 'Kesehatan', type: 'EXPENSE' },
-  { name: 'Pendidikan', type: 'EXPENSE' },
-  { name: 'Keluarga', type: 'EXPENSE' },
-  { name: 'Hadiah & Donasi', type: 'EXPENSE' },
-  { name: 'Lainnya (Pengeluaran)', type: 'EXPENSE' },
+  { name: 'Makanan & Minuman', type: 'EXPENSE', icon: '🍔' },
+  { name: 'Transportasi', type: 'EXPENSE', icon: '🚗' },
+  { name: 'Tagihan', type: 'EXPENSE', icon: '🧾' },
+  { name: 'Belanja', type: 'EXPENSE', icon: '🛍️' },
+  { name: 'Hiburan', type: 'EXPENSE', icon: '🎉' },
+  { name: 'Kesehatan', type: 'EXPENSE', icon: '❤️' },
+  { name: 'Pendidikan', type: 'EXPENSE', icon: '🎓' },
+  { name: 'Keluarga', type: 'EXPENSE', icon: '👨‍👩‍👧' },
+  { name: 'Hadiah & Donasi', type: 'EXPENSE', icon: '🎁' },
+  { name: 'Lainnya (Pengeluaran)', type: 'EXPENSE', icon: '🛒' },
   
   // Pemasukan
-  { name: 'Gaji', type: 'INCOME' },
-  { name: 'Bonus', type: 'INCOME' },
-  { name: 'Investasi', type: 'INCOME' },
-  { name: 'Hadiah Diterima', type: 'INCOME' },
-  { name: 'Penjualan', type: 'INCOME' },
-  { name: 'Lainnya (Pemasukan)', type: 'INCOME' }
+  { name: 'Gaji', type: 'INCOME', icon: '💰' },
+  { name: 'Bonus', type: 'INCOME', icon: '✨' },
+  { name: 'Investasi', type: 'INCOME', icon: '📈' },
+  { name: 'Hadiah Diterima', type: 'INCOME', icon: '💝' },
+  { name: 'Penjualan', type: 'INCOME', icon: '💸' },
+  { name: 'Lainnya (Pemasukan)', type: 'INCOME', icon: '🪙' }
 ];
 /**
  * Mencari user berdasarkan google_id unik mereka.
@@ -109,8 +110,9 @@ export const createWalletWithMember = async (db, walletData, userId) => {
   DEFAULT_CATEGORIES.forEach(cat => {
     const newCatId = `ca-${crypto.randomUUID()}`;
     batch.push(
-      db.prepare('INSERT INTO categories (id, wallet_id, name, type) VALUES (?, ?, ?, ?)')
-        .bind(newCatId, newWalletId, cat.name, cat.type)
+      // [DIUBAH] Tambahkan 'icon' dan 'cat.icon'
+      db.prepare('INSERT INTO categories (id, wallet_id, name, type, icon) VALUES (?, ?, ?, ?, ?)')
+        .bind(newCatId, newWalletId, cat.name, cat.type, cat.icon)
     );
   });
   // [AKHIR BLOK BARU]
@@ -171,11 +173,15 @@ export const findCategoriesByWalletId = async (db, walletId) => {
 };
 export const createCategory = async (db, data) => {
   const newId = `ca-${crypto.randomUUID()}`;
-  await db.prepare('INSERT INTO categories (id, wallet_id, name, type) VALUES (?, ?, ?, ?)').bind(newId, data.wallet_id, data.name, data.type).run();
+  // [DIUBAH] Tambahkan 'icon' dan 'data.icon'
+  await db.prepare('INSERT INTO categories (id, wallet_id, name, type, icon) VALUES (?, ?, ?, ?, ?)')
+    .bind(newId, data.wallet_id, data.name, data.type, data.icon || null).run();
   return { id: newId, ...data };
 };
 export const updateCategory = async (db, categoryId, data) => {
-  await db.prepare('UPDATE categories SET name = ?, type = ? WHERE id = ?').bind(data.name, data.type, categoryId).run();
+  // [DIUBAH] Tambahkan 'icon = ?' dan 'data.icon'
+  await db.prepare('UPDATE categories SET name = ?, type = ?, icon = ? WHERE id = ?')
+    .bind(data.name, data.type, data.icon || null, categoryId).run();
   return { id: categoryId, ...data };
 };
 export const deleteCategory = async (db, categoryId) => {
