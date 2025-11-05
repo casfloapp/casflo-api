@@ -216,10 +216,12 @@ export const findTransactionsByWalletId = async (db, walletId, filters = {}) => 
       t.transaction_date,
       t.created_at,
       c.name as category_name,
-      c.type as category_type,  -- <-- [FIX 1] Ambil tipe kategori
-      c.icon as category_icon,  -- <-- [PERBAIKAN] Tambahkan baris ini
-      s.amount,                 -- <-- [FIX 2] Ambil jumlah (amount) asli dalam SEN
-      a.name as account_name    -- <-- [FIX 3] Ambil nama akun
+      c.type as category_type,
+      c.icon as category_icon,
+      c.id as category_id,      -- [TAMBAHKAN INI]
+      s.amount,
+      a.name as account_name,
+      a.id as account_id        -- [TAMBAHKAN INI]
     FROM transactions t
     JOIN transaction_splits s ON t.id = s.transaction_id
     LEFT JOIN categories c ON s.category_id = c.id
@@ -318,6 +320,85 @@ export const deleteTransaction = async (db, transactionId) => {
   batch.push(db.prepare('DELETE FROM transactions WHERE id = ?').bind(transactionId));
   await db.batch(batch);
   return { success: true };
+};
+
+// ... (setelah deleteTransaction)
+
+export const updateTransaction = async (db, txId, data, userId) => {
+  const newAmount = Math.round(data.amount);
+  if (!newAmount || newAmount <= 0) return { error: 'Invalid amount' };
+
+  // 1. Dapatkan split lama untuk mengembalikan saldo
+  const oldSplits = (await db.prepare('SELECT * FROM transaction_splits WHERE transaction_id = ?').bind(txId).all()).results;
+  if (!oldSplits || oldSplits.length === 0) return { error: "Transaction not found or has no splits."};
+
+  const batch = [];
+
+  // 2. Kembalikan saldo akun lama
+  for (const split of oldSplits) {
+    if (split.account_id) {
+        batch.push(db.prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?").bind(split.amount, split.account_id));
+    }
+  }
+
+  // 3. Hapus split lama
+  batch.push(db.prepare('DELETE FROM transaction_splits WHERE transaction_id = ?').bind(txId));
+
+  // 4. Perbarui data transaksi utama
+  batch.push(
+    db.prepare('UPDATE transactions SET contact_id = ?, description = ?, transaction_date = ?, updated_at = datetime("now","localtime"), updated_by = ? WHERE id = ?')
+      .bind(data.contact_id || null, data.description, data.transaction_date, userId, txId)
+  );
+  
+  // 5. Buat split baru (logika disalin dari createTransaction)
+  const sqlInsertSplit = `
+    INSERT INTO transaction_splits 
+    (id, transaction_id, account_id, category_id, amount, type) 
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  if (data.type === 'EXPENSE') {
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, txId, data.from_account_id, data.category_id, newAmount, 'DEBIT')
+    );
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, txId, data.from_account_id, null, -newAmount, 'CREDIT')
+    );
+    batch.push(db.prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?").bind(newAmount, data.from_account_id));
+  
+  } else if (data.type === 'INCOME') {
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, txId, data.to_account_id, null, newAmount, 'DEBIT')
+    );
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, txId, data.to_account_id, data.category_id, -newAmount, 'CREDIT')
+    );
+    batch.push(db.prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?").bind(newAmount, data.to_account_id));
+  
+  } else if (data.type === 'TRANSFER') {
+    // (Logika transfer tidak diubah)
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, txId, data.to_account_id, null, newAmount, 'DEBIT')
+    );
+    batch.push(
+      db.prepare(sqlInsertSplit)
+        .bind(`spl-${crypto.randomUUID()}`, txId, data.from_account_id, null, -newAmount, 'CREDIT')
+    );
+    batch.push(db.prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?").bind(newAmount, data.to_account_id));
+    batch.push(db.prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?").bind(newAmount, data.from_account_id));
+  
+  } else { 
+    return { error: 'Invalid transaction type' }; 
+  }
+  
+  // Jalankan semua operasi sebagai satu transaksi
+  await db.batch(batch);
+  return { id: txId, ...data };
 };
 
 // --- [DIUBAH TOTAL] Logika untuk Wallet Summary ---

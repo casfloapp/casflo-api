@@ -328,6 +328,19 @@ walletSpecificRoutes.post('/transactions', async (c) => {
     if (result.error) { return c.json({ success: false, error: { message: result.error }}, 400); }
     return c.json({ success: true, data: result }, 201);
 });
+walletSpecificRoutes.put('/transactions/:txId', async (c) => {
+    const user = c.get('user');
+    const { walletId, txId } = c.req.param();
+    const body = await c.req.json();
+    
+    // Panggil query update yang baru kita buat
+    const result = await q.updateTransaction(c.env.DB, txId, { wallet_id: walletId, ...body }, user.id);
+    
+    if (result.error) { 
+        return c.json({ success: false, error: { message: result.error }}, 400); 
+    }
+    return c.json({ success: true, data: result });
+});
 walletSpecificRoutes.delete('/transactions/:transactionId', async (c) => {
     const { transactionId } = c.req.param();
     const result = await q.deleteTransaction(c.env.DB, transactionId);
