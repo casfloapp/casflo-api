@@ -321,7 +321,10 @@ walletSpecificRoutes.get('/transactions', async (c) => {
     const { walletId } = c.req.param();
     const { startDate, endDate, accountId, categoryId } = c.req.query();
     const transactions = await q.findTransactionsByWalletId(c.env.DB, walletId, { startDate, endDate, accountId, categoryId });
-    const transactionsInRupiah = transactions.map(tx => ({...tx, amount: (tx.amount || 0) / 100 }));
+    
+    // [PERBAIKAN] Hapus .map dan pembagian 100
+    const transactionsInRupiah = transactions;
+    
     return c.json({ success: true, data: transactionsInRupiah });
 });
 walletSpecificRoutes.post('/transactions', async (c) => {
