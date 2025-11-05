@@ -200,28 +200,42 @@ export const deleteContact = async (db, contactId) => {
 };
 
 // --- [DIUBAH TOTAL] Logika untuk Transactions ---
+// FUNGSI BARU (PERBAIKAN):
+// FUNGSI BARU YANG BENAR:
 export const findTransactionsByWalletId = async (db, walletId, filters = {}) => {
   let baseQuery = `
-    SELECT DISTINCT
+    SELECT 
       t.id,
       t.description,
       t.transaction_date,
       t.created_at,
-      (SELECT GROUP_CONCAT(c.name) FROM transaction_splits s JOIN categories c ON s.category_id = c.id WHERE s.transaction_id = t.id) as category_name,
-      (SELECT ABS(SUM(s.amount)) FROM transaction_splits s WHERE s.transaction_id = t.id AND s.amount > 0) as amount
+      c.name as category_name,
+      c.type as category_type,  -- <-- [FIX 1] Ambil tipe kategori
+      s.amount,                 -- <-- [FIX 2] Ambil jumlah (amount) asli dalam SEN
+      a.name as account_name    -- <-- [FIX 3] Ambil nama akun
     FROM transactions t
+    JOIN transaction_splits s ON t.id = s.transaction_id
+    LEFT JOIN categories c ON s.category_id = c.id
+    LEFT JOIN accounts a ON s.account_id = a.id
   `;
-  const joins = [], whereClauses = ['t.wallet_id = ?'], params = [walletId];
-  if (filters.accountId || filters.categoryId) {
-    joins.push('JOIN transaction_splits s_filter ON t.id = s_filter.transaction_id');
-    if (filters.accountId) { whereClauses.push('s_filter.account_id = ?'); params.push(filters.accountId); }
-    if (filters.categoryId) { whereClauses.push('s_filter.category_id = ?'); params.push(filters.categoryId); }
-  }
+
+  const whereClauses = ['t.wallet_id = ?', 's.category_id IS NOT NULL']; 
+  const params = [walletId];
+
   if (filters.startDate && filters.endDate) {
     whereClauses.push('t.transaction_date BETWEEN ? AND ?');
     params.push(filters.startDate, filters.endDate);
   }
-  const finalQuery = `${baseQuery} ${joins.join(' ')} WHERE ${whereClauses.join(' AND ')} ORDER BY t.transaction_date DESC, t.created_at DESC`;
+  if (filters.accountId) {
+    whereClauses.push('s.account_id = ?'); 
+    params.push(filters.accountId); 
+  }
+  if (filters.categoryId) { 
+    whereClauses.push('s.category_id = ?'); 
+    params.push(filters.categoryId); 
+  }
+
+  const finalQuery = `${baseQuery} WHERE ${whereClauses.join(' AND ')} ORDER BY t.transaction_date DESC, t.created_at DESC`;
   return (await db.prepare(finalQuery).bind(...params).all()).results;
 };
 
