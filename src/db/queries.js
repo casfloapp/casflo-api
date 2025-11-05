@@ -2,7 +2,28 @@
 import bcrypt from 'bcryptjs';
 
 // --- [DIPERTAHANKAN & DILENGKAPI] User & Verification Code Queries ---
-
+// [BARU] Tambahkan daftar kategori default di sini
+const DEFAULT_CATEGORIES = [
+  // Pengeluaran
+  { name: 'Makanan & Minuman', type: 'EXPENSE' },
+  { name: 'Transportasi', type: 'EXPENSE' },
+  { name: 'Tagihan', type: 'EXPENSE' },
+  { name: 'Belanja', type: 'EXPENSE' },
+  { name: 'Hiburan', type: 'EXPENSE' },
+  { name: 'Kesehatan', type: 'EXPENSE' },
+  { name: 'Pendidikan', type: 'EXPENSE' },
+  { name: 'Keluarga', type: 'EXPENSE' },
+  { name: 'Hadiah & Donasi', type: 'EXPENSE' },
+  { name: 'Lainnya (Pengeluaran)', type: 'EXPENSE' },
+  
+  // Pemasukan
+  { name: 'Gaji', type: 'INCOME' },
+  { name: 'Bonus', type: 'INCOME' },
+  { name: 'Investasi', type: 'INCOME' },
+  { name: 'Hadiah Diterima', type: 'INCOME' },
+  { name: 'Penjualan', type: 'INCOME' },
+  { name: 'Lainnya (Pemasukan)', type: 'INCOME' }
+];
 /**
  * Mencari user berdasarkan google_id unik mereka.
  */
@@ -83,6 +104,17 @@ export const createWalletWithMember = async (db, walletData, userId) => {
     db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role) VALUES (?, ?, ?)').bind(newWalletId, userId, 'OWNER'),
     db.prepare("INSERT INTO accounts (id, wallet_id, name, type, balance) VALUES (?, ?, 'Kas Tunai', 'ASSET', 0)").bind(defaultAccountId, newWalletId)
   ];
+
+  // [BARU] Loop melalui kategori default dan tambahkan ke batch
+  DEFAULT_CATEGORIES.forEach(cat => {
+    const newCatId = `ca-${crypto.randomUUID()}`;
+    batch.push(
+      db.prepare('INSERT INTO categories (id, wallet_id, name, type) VALUES (?, ?, ?, ?)')
+        .bind(newCatId, newWalletId, cat.name, cat.type)
+    );
+  });
+  // [AKHIR BLOK BARU]
+
   await db.batch(batch);
   return { id: newWalletId, ...walletData };
 };
