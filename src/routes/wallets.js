@@ -309,16 +309,22 @@ walletSpecificRoutes.delete('/contacts/:contactId', async (c) => {
     return c.json({ success: true, message: 'Contact deleted successfully' });
 });
 
-// --- [DIUBAH] CRUD Transaksi dengan Filter ---
-walletSpecificRoutes.get('/transactions', async (c) => {
+// --- [DIUBAH TOTAL] Rute Laporan Summary ---
+walletSpecificRoutes.get('/summary', async (c) => {
     const { walletId } = c.req.param();
-    const { startDate, endDate, accountId, categoryId } = c.req.query();
-    const transactions = await q.findTransactionsByWalletId(c.env.DB, walletId, { startDate, endDate, accountId, categoryId });
-    
-    // [PERBAIKAN] Hapus .map dan pembagian 100
-    const transactionsInRupiah = transactions;
-    
-    return c.json({ success: true, data: transactionsInRupiah });
+    // [PERBAIKAN] Ambil tanggal dari query parameters
+    const { startDate, endDate } = c.req.query(); 
+
+    // [PERBAIKAN] Kirim tanggal ke fungsi query
+    const summaryData = await q.getWalletSummary(c.env.DB, walletId, { startDate, endDate }); 
+    const summaryInRupiah = {
+        assets: (summaryData.assets || 0),
+        liabilities: (summaryData.liabilities || 0),
+        net_worth: (summaryData.net_worth || 0),
+        monthly_income: (summaryData.monthly_income || 0),
+        monthly_expense: (summaryData.monthly_expense || 0),
+    };
+    return c.json({ success: true, data: summaryInRupiah });
 });
 walletSpecificRoutes.post('/transactions', async (c) => {
     const user = c.get('user');

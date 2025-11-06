@@ -403,10 +403,23 @@ export const updateTransaction = async (db, txId, data, userId) => {
 };
 
 // --- [DIUBAH TOTAL] Logika untuk Wallet Summary ---
-export const getWalletSummary = async (db, walletId) => {
+export const getWalletSummary = async (db, walletId, filters = {}) => { // <-- [PERBAIKAN] Tambah parameter filters
     const assetsResult = await db.prepare("SELECT SUM(balance) as total FROM accounts WHERE wallet_id = ? AND type = 'ASSET' AND is_archived = 0").bind(walletId).first('total');
     const liabilitiesResult = await db.prepare("SELECT SUM(balance) as total FROM accounts WHERE wallet_id = ? AND type = 'LIABILITY' AND is_archived = 0").bind(walletId).first('total');
-    const now = new Date(), startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0], endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    
+    // [PERBAIKAN] Gunakan tanggal dari filter, ATAU default ke bulan ini jika tidak ada
+    let startDate, endDate;
+    if (filters.startDate && filters.endDate) {
+        startDate = filters.startDate;
+        endDate = filters.endDate;
+    } else {
+        // Fallback jika frontend tidak mengirim tanggal (seharusnya tidak terjadi, tapi aman)
+        const now = new Date();
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    }
+    // [AKHIR PERBAIKAN]
+
     const incomeQuery = `SELECT ABS(SUM(s.amount)) as total FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.wallet_id = ? AND c.type = 'INCOME' AND t.transaction_date BETWEEN ? AND ?`;
     const expenseQuery = `SELECT ABS(SUM(s.amount)) as total FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.wallet_id = ? AND c.type = 'EXPENSE' AND t.transaction_date BETWEEN ? AND ?`;
     const monthlyIncomeResult = await db.prepare(incomeQuery).bind(walletId, startDate, endDate).first('total');
