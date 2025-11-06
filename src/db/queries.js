@@ -91,7 +91,7 @@ export const deleteVerificationCode = async (db, email) => {
 
 // --- [DIPERTAHANKAN & DIUBAH] Wallet & Member Queries ---
 export const findWalletsByUserId = async (db, userId) => {
-  const stmt = db.prepare('SELECT w.*, wm.role FROM wallets w JOIN wallet_members wm ON w.id = wm.wallet_id WHERE wm.user_id = ?');
+  const stmt = db.prepare('SELECT w.id, w.name, w.icon, wm.role FROM wallets w JOIN wallet_members wm ON w.id = wm.wallet_id WHERE wm.user_id = ?');
   return (await stmt.bind(userId).all()).results;
 };
 export const findWalletById = async (db, walletId) => {
@@ -101,9 +101,10 @@ export const createWalletWithMember = async (db, walletData, userId) => {
   const newWalletId = `w-${crypto.randomUUID()}`;
   const defaultAccountId = `acc-${crypto.randomUUID()}`;
   const batch = [
-    db.prepare('INSERT INTO wallets (id, name, module_type, created_by) VALUES (?, ?, ?, ?)').bind(newWalletId, walletData.name, walletData.moduleType, userId),
-    db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role) VALUES (?, ?, ?)').bind(newWalletId, userId, 'OWNER'),
-    db.prepare("INSERT INTO accounts (id, wallet_id, name, type, balance) VALUES (?, ?, 'Kas Tunai', 'ASSET', 0)").bind(defaultAccountId, newWalletId)
+      db.prepare('INSERT INTO wallets (id, name, module_type, created_by, icon) VALUES (?, ?, ?, ?, ?)')
+        .bind(newWalletId, walletData.name, walletData.moduleType, userId, '📚'), // <-- Tambahkan icon default
+      db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role) VALUES (?, ?, ?)').bind(newWalletId, userId, 'OWNER'),
+      db.prepare("INSERT INTO accounts (id, wallet_id, name, type, balance) VALUES (?, ?, 'Kas Tunai', 'ASSET', 0)").bind(defaultAccountId, newWalletId)
   ];
 
   // [BARU] Loop melalui kategori default dan tambahkan ke batch
