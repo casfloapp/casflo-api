@@ -309,22 +309,19 @@ walletSpecificRoutes.delete('/contacts/:contactId', async (c) => {
     return c.json({ success: true, message: 'Contact deleted successfully' });
 });
 
-// --- [DIUBAH TOTAL] Rute Laporan Summary ---
-walletSpecificRoutes.get('/summary', async (c) => {
+// --- [DIUBAH] CRUD Transaksi dengan Filter ---
+walletSpecificRoutes.get('/transactions', async (c) => {
     const { walletId } = c.req.param();
-    // [PERBAIKAN] Ambil tanggal dari query parameters
-    const { startDate, endDate } = c.req.query(); 
+    const { startDate, endDate } = c.req.query(); // Ambil filter dari URL
 
-    // [PERBAIKAN] Kirim tanggal ke fungsi query
-    const summaryData = await q.getWalletSummary(c.env.DB, walletId, { startDate, endDate }); 
-    const summaryInRupiah = {
-        assets: (summaryData.assets || 0),
-        liabilities: (summaryData.liabilities || 0),
-        net_worth: (summaryData.net_worth || 0),
-        monthly_income: (summaryData.monthly_income || 0),
-        monthly_expense: (summaryData.monthly_expense || 0),
-    };
-    return c.json({ success: true, data: summaryInRupiah });
+    // Panggil query yang sudah Anda buat di queries.js
+    const transactions = await q.findTransactionsByWalletId(
+        c.env.DB, 
+        walletId, 
+        { startDate, endDate } // Kirim filter
+    );
+    
+    return c.json({ success: true, data: transactions });
 });
 walletSpecificRoutes.post('/transactions', async (c) => {
     const user = c.get('user');
