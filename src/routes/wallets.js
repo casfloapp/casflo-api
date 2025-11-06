@@ -59,7 +59,19 @@ walletSpecificRoutes.delete('/', async (c) => {
     return c.json({ success: true, message: 'Wallet deleted successfully' });
 });
 
-
+// --- [DIUBAH TOTAL] Rute Laporan Summary ---
+walletSpecificRoutes.get('/summary', async (c) => {
+    const { walletId } = c.req.param();
+    const summaryData = await q.getWalletSummary(c.env.DB, walletId);
+    const summaryInRupiah = {
+        assets: (summaryData.assets || 0), // <-- Hapus / 100
+        liabilities: (summaryData.liabilities || 0), // <-- Hapus / 100
+        net_worth: (summaryData.net_worth || 0), // <-- Hapus / 100
+        monthly_income: (summaryData.monthly_income || 0), // <-- Hapus / 100
+        monthly_expense: (summaryData.monthly_expense || 0), // <-- Hapus / 100
+    };
+    return c.json({ success: true, data: summaryInRupiah });
+});
 
 // --- [BARU] CRUD Akun (Aset & Liabilitas) ---
 walletSpecificRoutes.get('/accounts', async (c) => {
