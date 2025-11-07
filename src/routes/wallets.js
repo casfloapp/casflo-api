@@ -372,7 +372,7 @@ walletSpecificRoutes.post('/members', async (c) => {
     }
 
     const { walletId } = c.req.param();
-    const { email, role } = await c.req.json();
+    const { email, role, label } = await c.req.json();
 
     const userToInvite = await q.findUserByEmail(c.env.DB, email);
     if (!userToInvite) { 
@@ -397,7 +397,7 @@ walletSpecificRoutes.post('/members', async (c) => {
     }
 
     try {
-        await q.addWalletMember(c.env.DB, walletId, userToInvite.id, role);
+        await q.addWalletMember(c.env.DB, walletId, userToInvite.id, role, label);
 
         // [BARU] Kirim email notifikasi (tanpa menunggu selesai)
         c.executionCtx.waitUntil(
