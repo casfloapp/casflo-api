@@ -141,7 +141,8 @@ export const findMembersByWalletId = async (db, walletId) => {
   return (await stmt.bind(walletId).all()).results;
 };
 export const addWalletMember = async (db, walletId, userId, role, label) => {
-  return await db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role, label) VALUES (?, ?, ?)').bind(walletId, userId, role, label).run();
+  return await db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role, label) VALUES (?, ?, ?, ?)')
+    .bind(walletId, userId, role, label || null).run();
 };
 export const removeWalletMember = async (db, walletId, userId) => {
   return await db.prepare('DELETE FROM wallet_members WHERE wallet_id = ? AND user_id = ?').bind(walletId, userId).run();
