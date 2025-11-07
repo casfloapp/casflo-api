@@ -137,14 +137,14 @@ export const findMember = async (db, walletId, userId) => {
   return await db.prepare('SELECT * FROM wallet_members WHERE wallet_id = ? AND user_id = ?').bind(walletId, userId).first();
 };
 export const findMembersByWalletId = async (db, walletId) => {
-  // [PERBAIKAN] Tambahkan wm.label
+  // [PERBAIKAN] Tambahkan "wm.label" di sini
   const stmt = db.prepare('SELECT u.id, u.full_name, u.email, u.avatar_url, wm.role, wm.label FROM users u JOIN wallet_members wm ON u.id = wm.user_id WHERE wm.wallet_id = ?');
   return (await stmt.bind(walletId).all()).results;
 };
-export const addWalletMember = async (db, walletId, userId, role, label) => {
+export const addWalletMember = async (db, walletId, userId, role, label) => { // <-- [PERBAIKAN] Tambah 'label'
   // [PERBAIKAN] Tambahkan 'label' dan '?'
   return await db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role, label) VALUES (?, ?, ?, ?)')
-    .bind(walletId, userId, role, label || null).run(); // Kirim 'null' jika label kosong
+    .bind(walletId, userId, role, label || null).run(); // Simpan 'null' jika label kosong
 };
 export const removeWalletMember = async (db, walletId, userId) => {
   return await db.prepare('DELETE FROM wallet_members WHERE wallet_id = ? AND user_id = ?').bind(walletId, userId).run();
