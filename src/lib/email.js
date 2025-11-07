@@ -37,3 +37,48 @@ export const sendVerificationEmail = async (c, { to, code }) => {
     return { success: false, error: 'An error occurred while trying to send the email.' };
   }
 };
+
+export const sendWalletInvitationEmail = async (c, { to, inviterName, walletName }) => {
+  const from = 'casflo.id <no-reply@casflo.id>';
+  const subject = `Anda telah diundang ke dompet ${walletName}`;
+  const html = `
+    <div style="font-family: sans-serif; text-align: center;">
+      <h2>Undangan Bergabung</h2>
+      <p>Halo!</p>
+      <p>
+        <strong>${inviterName}</strong> telah mengundang Anda untuk bergabung ke dompet 
+        <strong style="font-size: 18px;">${walletName}</strong>
+        di aplikasi Casflo.
+      </p>
+      <p>
+        Cukup login ke akun Casflo Anda, dan Anda akan otomatis melihat dompet baru ini di daftar Anda.
+      </p>
+      <p style="font-size: 12px; color: #888;">
+        Jika Anda tidak merasa meminta undangan ini, Anda bisa mengabaikan email ini.
+      </p>
+    </div>
+  `;
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${c.env.RESEND_API_KEY}`
+      },
+      body: JSON.stringify({ from, to, subject, html })
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json();
+      console.error('Failed to send invitation email:', errorBody);
+      return { success: false, error: 'Failed to send invitation email.' };
+    }
+    
+    return { success: true };
+
+  } catch (error) {
+    console.error('Email service fetch error:', error);
+    return { success: false, error: 'An error occurred while trying to send the email.' };
+  }
+};

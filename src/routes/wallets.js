@@ -3,6 +3,7 @@
 import { Hono } from 'hono';
 import { protect } from '../middleware/auth.js';
 import * as q from '../db/queries.js'; // Mengimpor semua query dengan alias 'q'
+import { sendWalletInvitationEmail } from '../lib/email.js';
 
 const walletRoutes = new Hono();
 walletRoutes.use('*', protect); // Lindungi semua rute
@@ -364,13 +365,58 @@ walletSpecificRoutes.get('/members', async (c) => {
     return c.json({ success: true, data: members });
 });
 walletSpecificRoutes.post('/members', async (c) => {
-    if (c.get('member').role !== 'OWNER') { return c.json({ success: false, error: { message: 'Forbidden: Only the owner can add members.' } }, 403); }
+    const memberRole = c.get('member').role;
+    // [PERBAIKAN] Peran 'ADMIN' juga harus bisa mengundang
+    if (memberRole !== 'OWNER' && memberRole !== 'ADMIN') { 
+        return c.json({ success: false, error: { message: 'Forbidden: Hanya Owner atau Admin yang dapat menambah anggota.' } }, 403); 
+    }
+
     const { walletId } = c.req.param();
     const { email, role } = await c.req.json();
+
     const userToInvite = await q.findUserByEmail(c.env.DB, email);
-    if (!userToInvite) { return c.json({ success: false, error: { message: 'User with that email not found.' } }, 404); }
-    await q.addWalletMember(c.env.DB, walletId, userToInvite.id, role);
-    return c.json({ success: true, message: 'Member added successfully' }, 201);
+    if (!userToInvite) { 
+        return c.json({ success: false, error: { message: 'User dengan email tersebut tidak ditemukan.' } }, 404); 
+    }
+
+    // [BARU] Ambil data user pengundang (Anda)
+    const inviterId = c.get('user').id;
+    if (userToInvite.id === inviterId) {
+        return c.json({ success: false, error: { message: 'Anda tidak bisa mengundang diri sendiri.' } }, 400);
+    }
+
+    const inviter = await q.findUserById(c.env.DB, inviterId);
+    if (!inviter) {
+        return c.json({ success: false, error: { message: 'Gagal menemukan data pengundang.' } }, 500);
+    }
+
+    // [BARU] Ambil nama dompet
+    const wallet = await q.findWalletById(c.env.DB, walletId);
+    if (!wallet) {
+        return c.json({ success: false, error: { message: 'Gagal menemukan data dompet.' } }, 404);
+    }
+
+    try {
+        await q.addWalletMember(c.env.DB, walletId, userToInvite.id, role);
+
+        // [BARU] Kirim email notifikasi (tanpa menunggu selesai)
+        c.executionCtx.waitUntil(
+            sendWalletInvitationEmail(c, {
+                to: userToInvite.email,
+                inviterName: inviter.full_name,
+                walletName: wallet.name
+            })
+        );
+
+        return c.json({ success: true, message: 'Anggota berhasil ditambahkan' }, 201);
+
+    } catch (e) {
+        // Menangani jika user sudah menjadi anggota
+        if (e.message.includes('UNIQUE constraint failed')) {
+            return c.json({ success: false, error: { message: 'User ini sudah menjadi anggota dompet.' } }, 409);
+        }
+        return c.json({ success: false, error: { message: 'Gagal menambahkan anggota.', details: e.message } }, 500);
+    }
 });
 walletSpecificRoutes.delete('/members/:userId', async (c) => {
     if (c.get('member').role !== 'OWNER') { return c.json({ success: false, error: { message: 'Forbidden: Only the owner can remove members.' } }, 403); }

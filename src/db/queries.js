@@ -36,6 +36,10 @@ export const findUserByEmail = async (db, email) => {
   return await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
 };
 
+export const findUserById = async (db, userId) => {
+  return await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+};
+
 /**
  * Membuat user baru yang mendaftar via Google.
  * Email dianggap sudah terverifikasi oleh Google.
