@@ -112,10 +112,14 @@ export const createWalletWithMember = async (db, walletData, userId) => {
   const defaultAccountId = `acc-${crypto.randomUUID()}`;
   const batch = [
       db.prepare('INSERT INTO wallets (id, name, module_type, created_by, icon) VALUES (?, ?, ?, ?, ?)')
-        .bind(newWalletId, walletData.name, walletData.moduleType, userId, walletData.icon || '📚'), // <-- [PERBAIKAN]
+        .bind(newWalletId, walletData.name, walletData.moduleType, userId, walletData.icon || '📚'),
+      
+      // V V V [PERBAIKAN WAJIB ADA DI SINI] V V V
+      db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role) VALUES (?, ?, ?)').bind(newWalletId, userId, 'OWNER'),
+      // ^ ^ ^ [AKHIR DARI PERBAIKAN] ^ ^ ^
+      
       db.prepare("INSERT INTO accounts (id, wallet_id, name, type, balance) VALUES (?, ?, 'Kas Tunai', 'ASSET', 0)").bind(defaultAccountId, newWalletId)
   ];
-
   // [BARU] Loop melalui kategori default dan tambahkan ke batch
   DEFAULT_CATEGORIES.forEach(cat => {
     const newCatId = `ca-${crypto.randomUUID()}`;
