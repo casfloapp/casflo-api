@@ -28,11 +28,14 @@ walletRoutes.get('/', async (c) => {
 });
 walletRoutes.post('/', async (c) => {
     const user = c.get('user');
+    const { name, moduleType, icon } = await c.req.json(); // 1. Ambil 'icon'
     const body = await c.req.json();
     if (!body.name || !body.moduleType) { return c.json({ success: false, error: { message: 'Name and moduleType are required' } }, 400); }
-    const newWallet = await q.createWalletWithMember(c.env.DB, body, user.id);
+    const newWallet = await q.createWalletWithMember(c.env.DB, body, user.id, icon);
     return c.json({ success: true, data: newWallet }, 201);
 });
+
+
 
 // Grup rute yang memerlukan keanggotaan wallet
 const walletSpecificRoutes = new Hono();

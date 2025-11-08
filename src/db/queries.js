@@ -101,13 +101,18 @@ export const findWalletsByUserId = async (db, userId) => {
 export const findWalletById = async (db, walletId) => {
   return await db.prepare('SELECT * FROM wallets WHERE id = ?').bind(walletId).first();
 };
+export const createWallet = (db, name, moduleType, userId, icon) => { // 1. Tambah 'icon'
+    const newWalletId = nanoid();
+    return db.prepare(
+        'INSERT INTO wallets (id, name, module_type, created_by, icon) VALUES (?, ?, ?, ?, ?)' // 2. Tambah 'icon' di query
+    ).bind(newWalletId, name, moduleType, userId, icon || '📚').run(); // 3. Bind 'icon' (beri default '📚')
+};
 export const createWalletWithMember = async (db, walletData, userId) => {
   const newWalletId = `w-${crypto.randomUUID()}`;
   const defaultAccountId = `acc-${crypto.randomUUID()}`;
   const batch = [
       db.prepare('INSERT INTO wallets (id, name, module_type, created_by, icon) VALUES (?, ?, ?, ?, ?)')
-        .bind(newWalletId, walletData.name, walletData.moduleType, userId, '📚'), // <-- Tambahkan icon default
-      db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role) VALUES (?, ?, ?)').bind(newWalletId, userId, 'OWNER'),
+        .bind(newWalletId, walletData.name, walletData.moduleType, userId, walletData.icon || '📚'), // <-- [PERBAIKAN]
       db.prepare("INSERT INTO accounts (id, wallet_id, name, type, balance) VALUES (?, ?, 'Kas Tunai', 'ASSET', 0)").bind(defaultAccountId, newWalletId)
   ];
 
@@ -126,9 +131,11 @@ export const createWalletWithMember = async (db, walletData, userId) => {
   return { id: newWalletId, ...walletData };
 };
 export const updateWallet = async (db, walletId, data) => {
-  await db.prepare('UPDATE wallets SET name = ?, updated_at = datetime("now","localtime"), updated_by = ? WHERE id = ?')
-    .bind(data.name, data.updated_by, walletId).run();
-  return { id: walletId, name: data.name };
+  // [PERBAIKAN] Tambahkan 'icon = ?'
+  await db.prepare('UPDATE wallets SET name = ?, icon = ?, updated_at = datetime("now","localtime"), updated_by = ? WHERE id = ?')
+    // [PERBAIKAN] Tambahkan 'data.icon' ke bind
+    .bind(data.name, data.icon || '📚', data.updated_by, walletId).run();
+  return { id: walletId, name: data.name, icon: data.icon }; // Kembalikan data icon juga
 };
 export const deleteWallet = async (db, walletId) => {
   return await db.prepare('DELETE FROM wallets WHERE id = ?').bind(walletId).run();
