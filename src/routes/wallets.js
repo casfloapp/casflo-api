@@ -28,10 +28,19 @@ walletRoutes.get('/', async (c) => {
 });
 walletRoutes.post('/', async (c) => {
     const user = c.get('user');
-    const { name, moduleType, icon } = await c.req.json(); // 1. Ambil 'icon'
-    const body = await c.req.json();
-    if (!body.name || !body.moduleType) { return c.json({ success: false, error: { message: 'Name and moduleType are required' } }, 400); }
-    const newWallet = await q.createWalletWithMember(c.env.DB, body, user.id, icon);
+    
+    // [PERBAIKAN] Panggil c.req.json() HANYA SEKALI
+    const body = await c.req.json(); 
+    
+    // [PERBAIKAN] Gunakan 'body' untuk validasi
+    if (!body.name || !body.moduleType) { 
+        return c.json({ success: false, error: { message: 'Name and moduleType are required' } }, 400); 
+    }
+    
+    // [PERBAIKAN] Kirim 'body' (yang sekarang berisi 'icon') dan 'user.id'
+    // Fungsi createWalletWithMember Anda mengharapkan (db, walletData, userId)
+    const newWallet = await q.createWalletWithMember(c.env.DB, body, user.id); 
+    
     return c.json({ success: true, data: newWallet }, 201);
 });
 
