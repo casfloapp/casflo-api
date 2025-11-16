@@ -1,16 +1,15 @@
-// [PERBAIKAN UNTUK FILE: casflo-api/src/lib/gemini.js]
+// [PERBAIKAN FINAL UNTUK FILE: casflo-api/src/lib/gemini.js]
 
 /**
- * Memanggil Google Gemini 1.5 Flash API.
- * Versi ini menerima daftar kategori pengguna untuk pencocokan AI.
+ * Memanggil Google Gemini API.
  */
 async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
-    // [PERBAIKAN KUNCI DI SINI] Menghapus "-latest" dari nama model
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    // [PERBAIKAN KUNCI DI SINI] Mengganti nama model ke 'gemini-pro-vision'
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
     
     const cleanBase64 = base64Image.split(',')[1];
     
-    // [PENINGKATAN] Buat daftar kategori untuk prompt
     const categoriesPromptString = userCategories.map(cat => `- ${cat.name} (id: ${cat.id})`).join('\n');
 
     const prompt = `
@@ -44,12 +43,19 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
       }
     `;
 
+    // [CATATAN] Request body untuk 'gemini-pro-vision' sedikit berbeda
+    // Kita harus mengirim gambar dan teks dalam satu 'parts' array.
     const requestBody = {
         contents: [
             {
                 parts: [
-                    { "text": prompt },
-                    { "inline_data": { "mime_type": "image/jpeg", "data": cleanBase64 } }
+                    { "text": prompt }, // Perintah teks
+                    {
+                        "inline_data": { // Gambar
+                            "mime_type": "image/jpeg",
+                            "data": cleanBase64
+                        }
+                    }
                 ]
             }
         ],
@@ -67,7 +73,6 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     if (!response.ok) {
         const errorBody = await response.json();
         console.error("Gemini API Error:", JSON.stringify(errorBody, null, 2));
-        // [PERBAIKAN] Lempar pesan error dari Gemini jika ada
         const details = errorBody.error?.message || "Gagal memanggil Google Gemini API.";
         throw new Error(details);
     }
@@ -75,6 +80,11 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     const responseData = await response.json();
 
     try {
+        // Validasi respons
+        if (!responseData.candidates || !responseData.candidates[0].content || !responseData.candidates[0].content.parts[0].text) {
+             throw new Error("Respons AI tidak berisi teks JSON yang diharapkan.");
+        }
+        
         const jsonText = responseData.candidates[0].content.parts[0].text;
         const result = JSON.parse(jsonText);
         
@@ -82,7 +92,7 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
             result.items = result.items.map(item => ({
                 ...item,
                 harga: parseInt(String(item.harga).replace(/[^0-9]/g, ''), 10) || 0,
-                category_id: item.category_id || null // Pastikan ada
+                category_id: item.category_id || null 
             }));
         }
 
@@ -92,17 +102,15 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
         return result;
     } catch (e) {
         console.error("Gagal mem-parsing JSON dari Gemini:", e);
-        console.error("Raw response from Gemini:", responseData.candidates[0].content.parts[0].text);
+        if(responseData.candidates[0].content.parts[0].text) {
+             console.error("Raw response from Gemini:", responseData.candidates[0].content.parts[0].text);
+        }
         throw new Error("AI mengembalikan data dalam format yang tidak terduga.");
     }
 }
 
 /**
- * [DIHAPUS] Fungsi findMatchingCategory tidak diperlukan lagi karena AI yang menangani.
- */
-
-/**
- * [PERBAIKAN] Fungsi utama sekarang mengirim kategori ke Gemini.
+ * Fungsi utama yang dipanggil oleh router.
  */
 export async function processScanRequest(c, env) {
     const body = await c.req.json();
