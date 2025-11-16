@@ -1,16 +1,42 @@
-// [PERBAIKAN FINAL UNTUK FILE: casflo-api/src/lib/gemini.js]
+// [PERBAIKAN ADAPTASI SDK UNTUK FILE: casflo-api/src/lib/gemini.js]
+
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 /**
- * Memanggil Google Gemini API.
+ * Mengonversi Base64 ke format yang dimengerti oleh SDK @google/genai
+ */
+function base64ToGenerativePart(base64Data, mimeType) {
+    return {
+        inlineData: {
+            data: base64Data.split(',')[1], // Hapus prefix "data:image/jpeg;base64,"
+            mimeType
+        },
+    };
+}
+
+/**
+ * Memanggil Google Gemini API menggunakan SDK @google/genai.
  */
 async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     
-    // [PERBAIKAN KUNCI DI SINI] Mengganti nama model ke 'gemini-pro-vision'
- // [BARIS BARU YANG BENAR]
-    const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
- 
-    const cleanBase64 = base64Image.split(',')[1];
+    // 1. Inisialisasi SDK (seperti di geminiService.ts Anda)
+    const ai = new GoogleGenerativeAI(apiKey);
     
+    // 2. Tentukan model. Kita pakai 'gemini-1.5-flash' yang mendukung gambar
+    const model = ai.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        // [BARU] Tambahkan safety settings untuk menghindari blokir konten
+        safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ],
+        generationConfig: {
+            responseMimeType: "application/json" // Tetap minta output JSON
+        }
+    });
+
     const categoriesPromptString = userCategories.map(cat => `- ${cat.name} (id: ${cat.id})`).join('\n');
 
     const prompt = `
@@ -44,74 +70,50 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
       }
     `;
 
-    // [CATATAN] Request body untuk 'gemini-pro-vision' sedikit berbeda
-    // Kita harus mengirim gambar dan teks dalam satu 'parts' array.
-    const requestBody = {
-        contents: [
-            {
-                parts: [
-                    { "text": prompt }, // Perintah teks
-                    {
-                        "inline_data": { // Gambar
-                            "mime_type": "image/jpeg",
-                            "data": cleanBase64
-                        }
-                    }
-                ]
-            }
-        ],
-        "generationConfig": {
-            "responseMimeType": "application/json" 
-        }
-    };
-
-    const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-        const errorBody = await response.json();
-        console.error("Gemini API Error:", JSON.stringify(errorBody, null, 2));
-        const details = errorBody.error?.message || "Gagal memanggil Google Gemini API.";
-        throw new Error(details);
-    }
-
-    const responseData = await response.json();
+    // 3. Siapkan input untuk SDK
+    const imagePart = base64ToGenerativePart(base64Image, "image/jpeg");
+    const promptPart = { text: prompt };
 
     try {
-        // Validasi respons
-        if (!responseData.candidates || !responseData.candidates[0].content || !responseData.candidates[0].content.parts[0].text) {
-             throw new Error("Respons AI tidak berisi teks JSON yang diharapkan.");
+        // 4. Panggil API menggunakan SDK (menggantikan 'fetch' manual)
+        const result = await model.generateContent({
+            contents: [{ parts: [promptPart, imagePart] }]
+        });
+        
+        // 5. Ambil respons teks
+        const response = result.response;
+        if (!response) {
+            throw new Error("AI tidak memberikan respons.");
         }
         
-        const jsonText = responseData.candidates[0].content.parts[0].text;
-        const result = JSON.parse(jsonText);
-        
-        if (result.items && Array.isArray(result.items)) {
-            result.items = result.items.map(item => ({
+        const jsonText = response.text();
+        const scanResult = JSON.parse(jsonText);
+
+        // 6. Proses hasil (sama seperti sebelumnya)
+        if (scanResult.items && Array.isArray(scanResult.items)) {
+            scanResult.items = scanResult.items.map(item => ({
                 ...item,
                 harga: parseInt(String(item.harga).replace(/[^0-9]/g, ''), 10) || 0,
                 category_id: item.category_id || null 
             }));
         }
+        if (!scanResult.tanggal) {
+            scanResult.tanggal = new Date().toISOString().split('T')[0];
+        }
+        return scanResult;
 
-        if (!result.tanggal) {
-            result.tanggal = new Date().toISOString().split('T')[0];
+    } catch (error) {
+        console.error("Error memanggil Gemini SDK:", error);
+        // Tangani error jika konten diblokir
+        if (error.message.includes('BLOCKED_BY_SAFETY')) {
+            throw new Error("Gambar diblokir oleh filter keamanan Google. Coba gambar lain.");
         }
-        return result;
-    } catch (e) {
-        console.error("Gagal mem-parsing JSON dari Gemini:", e);
-        if(responseData.candidates[0].content.parts[0].text) {
-             console.error("Raw response from Gemini:", responseData.candidates[0].content.parts[0].text);
-        }
-        throw new Error("AI mengembalikan data dalam format yang tidak terduga.");
+        throw new Error(`Error dari Gemini SDK: ${error.message}`);
     }
 }
 
 /**
- * Fungsi utama yang dipanggil oleh router.
+ * Fungsi utama yang dipanggil oleh router. (Tidak berubah dari sebelumnya)
  */
 export async function processScanRequest(c, env) {
     const body = await c.req.json();
@@ -131,7 +133,7 @@ export async function processScanRequest(c, env) {
     );
     const { results: userCategories } = await categoriesStmt.bind(wallet_id).all();
 
-    // 2. Panggil Gemini API dan KIRIMKAN daftar kategori
+    // 2. Panggil Gemini API (versi SDK baru) dan KIRIMKAN daftar kategori
     const scanResult = await callGeminiAPI(image, env.GEMINI_API_KEY, userCategories);
 
     // 3. Kembalikan data (sudah termasuk category_id dari AI)
