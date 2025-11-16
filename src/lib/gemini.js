@@ -1,4 +1,4 @@
-// [PERBAIKAN ADAPTASI SDK UNTUK FILE: casflo-api/src/lib/gemini.js]
+// [PERBAIKAN ADAPTASI SDK v2 UNTUK FILE: casflo-api/src/lib/gemini.js]
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
@@ -19,26 +19,23 @@ function base64ToGenerativePart(base64Data, mimeType) {
  */
 async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     
-    // 1. Inisialisasi SDK (seperti di geminiService.ts Anda)
     const ai = new GoogleGenerativeAI(apiKey);
     
-    // 2. Tentukan model. Kita pakai 'gemini-1.5-flash' yang mendukung gambar
+    // [PERBAIKAN 1] Konfigurasi model SEKARANG HANYA berisi nama model dan safetySettings
     const model = ai.getGenerativeModel({
         model: "gemini-1.5-flash",
-        // [BARU] Tambahkan safety settings untuk menghindari blokir konten
         safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
         ],
-        generationConfig: {
-            responseMimeType: "application/json" // Tetap minta output JSON
-        }
+        // generationConfig dipindahkan dari sini...
     });
 
     const categoriesPromptString = userCategories.map(cat => `- ${cat.name} (id: ${cat.id})`).join('\n');
 
+    // ... Prompt Anda (sudah benar) ...
     const prompt = `
       Anda adalah asisten pemindai struk yang ahli untuk aplikasi keuangan Casflo.
       Tugas Anda adalah menganalisis gambar struk ini dan mengekstrak informasi berikut:
@@ -70,17 +67,18 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
       }
     `;
 
-    // 3. Siapkan input untuk SDK
     const imagePart = base64ToGenerativePart(base64Image, "image/jpeg");
     const promptPart = { text: prompt };
 
     try {
-        // 4. Panggil API menggunakan SDK (menggantikan 'fetch' manual)
+        // [PERBAIKAN 2] ...dan dipindahkan ke SINI
         const result = await model.generateContent({
-            contents: [{ parts: [promptPart, imagePart] }]
+            contents: [{ parts: [promptPart, imagePart] }],
+            generationConfig: {
+                responseMimeType: "application/json"
+            }
         });
         
-        // 5. Ambil respons teks
         const response = result.response;
         if (!response) {
             throw new Error("AI tidak memberikan respons.");
@@ -89,7 +87,6 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
         const jsonText = response.text();
         const scanResult = JSON.parse(jsonText);
 
-        // 6. Proses hasil (sama seperti sebelumnya)
         if (scanResult.items && Array.isArray(scanResult.items)) {
             scanResult.items = scanResult.items.map(item => ({
                 ...item,
@@ -104,7 +101,6 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
 
     } catch (error) {
         console.error("Error memanggil Gemini SDK:", error);
-        // Tangani error jika konten diblokir
         if (error.message.includes('BLOCKED_BY_SAFETY')) {
             throw new Error("Gambar diblokir oleh filter keamanan Google. Coba gambar lain.");
         }
@@ -113,7 +109,7 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
 }
 
 /**
- * Fungsi utama yang dipanggil oleh router. (Tidak berubah dari sebelumnya)
+ * Fungsi utama yang dipanggil oleh router. (Tidak berubah)
  */
 export async function processScanRequest(c, env) {
     const body = await c.req.json();
@@ -127,16 +123,13 @@ export async function processScanRequest(c, env) {
         throw new Error('GEMINI_API_KEY belum diatur di Cloudflare Worker secrets.');
     }
 
-    // 1. Ambil daftar kategori PENGELUARAN milik pengguna dari D1
     const categoriesStmt = env.DB.prepare(
         "SELECT id, name FROM categories WHERE wallet_id = ? AND type = 'EXPENSE'"
     );
     const { results: userCategories } = await categoriesStmt.bind(wallet_id).all();
 
-    // 2. Panggil Gemini API (versi SDK baru) dan KIRIMKAN daftar kategori
     const scanResult = await callGeminiAPI(image, env.GEMINI_API_KEY, userCategories);
 
-    // 3. Kembalikan data (sudah termasuk category_id dari AI)
     return {
         merchant: scanResult.merchant || "Merchant Tidak Dikenal",
         tanggal: scanResult.tanggal,
