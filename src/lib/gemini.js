@@ -1,52 +1,53 @@
+// [PERBAIKAN UNTUK FILE: casflo-api/src/lib/gemini.js]
+
 /**
  * Memanggil Google Gemini 1.5 Flash API.
- * Model ini dioptimalkan untuk kecepatan, yang ideal untuk scan struk.
+ * Versi ini menerima daftar kategori pengguna untuk pencocokan AI.
  */
-async function callGeminiAPI(base64Image, apiKey) {
-    // 1. Tentukan URL API
+async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
-
-    // 2. Hapus header data "data:image/jpeg;base64," dari string base64
     const cleanBase64 = base64Image.split(',')[1];
     
-    // 3. Susun Prompt Perintah
+    // [PENINGKATAN] Buat daftar kategori untuk prompt
+    const categoriesPromptString = userCategories.map(cat => `- ${cat.name} (id: ${cat.id})`).join('\n');
+
     const prompt = `
       Anda adalah asisten pemindai struk yang ahli untuk aplikasi keuangan Casflo.
       Tugas Anda adalah menganalisis gambar struk ini dan mengekstrak informasi berikut:
-      1.  "merchant": Nama toko atau merchant (misal: "Indomaret", "KFC", "Alfamart").
+      1.  "merchant": Nama toko atau merchant (misal: "Indomaret", "KFC").
       2.  "tanggal": Tanggal transaksi dalam format YYYY-MM-DD.
-      3.  "items": Sebuah array dari SETIAP barang yang dibeli. Setiap barang harus memiliki "nama" dan "harga" (sebagai angka, tanpa "Rp" atau ".").
+      3.  "items": Sebuah array dari SETIAP barang yang dibeli.
+
+      Ini adalah daftar kategori PENGELUARAN yang dimiliki pengguna:
+      [START_KATEGORI]
+      ${categoriesPromptString}
+      [END_KATEGORI]
 
       PENTING:
-      - Hanya ekstrak item yang memiliki harga. Jangan ekstrak subtotal, PPN, diskon, atau total akhir sebagai item.
-      - Pastikan harga adalah angka integer.
-      - Jika Anda tidak bisa menemukan merchant atau tanggal, kembalikan "null" untuk field tersebut.
-      - Kembalikan HANYA JSON yang valid. Jangan tambahkan "json" atau "\`\`\`" di awal atau akhir.
+      - Untuk setiap item, tentukan "category_id" yang paling relevan dari daftar di atas.
+      - Jika tidak ada kategori yang cocok, kembalikan "category_id": null.
+      - Pastikan harga adalah angka integer (tanpa "Rp" atau ".").
+      - Jangan ekstrak subtotal, PPN, atau total sebagai item.
+      - Kembalikan HANYA JSON yang valid.
 
       Contoh output JSON yang diinginkan:
       {
-        "merchant": "Indomaret",
+        "merchant": "Alfamart",
         "tanggal": "2025-11-16",
         "items": [
-          { "nama": "Susu UHT", "harga": 25000 },
-          { "nama": "Roti Tawar", "harga": 15000 },
-          { "nama": "Sabun Lifebuoy", "harga": 20000 }
+          { "nama": "Susu UHT Coklat", "harga": 25000, "category_id": "cat_makanan_minuman" },
+          { "nama": "Roti Tawar", "harga": 15000, "category_id": "cat_makanan_minuman" },
+          { "nama": "Biaya Parkir", "harga": 2000, "category_id": "cat_transportasi" }
         ]
       }
     `;
 
-    // 4. Susun Body Request ke Gemini
     const requestBody = {
         contents: [
             {
                 parts: [
-                    { "text": prompt }, // Perintah kita
-                    {
-                        "inline_data": { // Gambar struknya
-                            "mime_type": "image/jpeg", // Asumsi jpeg
-                            "data": cleanBase64
-                        }
-                    }
+                    { "text": prompt },
+                    { "inline_data": { "mime_type": "image/jpeg", "data": cleanBase64 } }
                 ]
             }
         ],
@@ -55,41 +56,37 @@ async function callGeminiAPI(base64Image, apiKey) {
         }
     };
 
-    // 5. Panggil API
     const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
         const errorBody = await response.json();
         console.error("Gemini API Error:", JSON.stringify(errorBody, null, 2));
-        throw new Error("Gagal memanggil Google Gemini API.");
+        // [PERBAIKAN] Lempar pesan error dari Gemini jika ada
+        const details = errorBody.error?.message || "Gagal memanggil Google Gemini API.";
+        throw new Error(details);
     }
 
     const responseData = await response.json();
 
-    // 6. Ekstrak JSON dari respons AI
     try {
         const jsonText = responseData.candidates[0].content.parts[0].text;
         const result = JSON.parse(jsonText);
         
-        // Bersihkan data harga (pastikan semuanya angka)
         if (result.items && Array.isArray(result.items)) {
             result.items = result.items.map(item => ({
                 ...item,
-                harga: parseInt(String(item.harga).replace(/[^0-9]/g, ''), 10) || 0
+                harga: parseInt(String(item.harga).replace(/[^0-9]/g, ''), 10) || 0,
+                category_id: item.category_id || null // Pastikan ada
             }));
         }
 
-        // Jika tanggal null, gunakan hari ini
         if (!result.tanggal) {
             result.tanggal = new Date().toISOString().split('T')[0];
         }
-
         return result;
     } catch (e) {
         console.error("Gagal mem-parsing JSON dari Gemini:", e);
@@ -99,33 +96,15 @@ async function callGeminiAPI(base64Image, apiKey) {
 }
 
 /**
- * Fungsi helper untuk mencocokkan nama item dengan kategori (Logika Opsi B - Aman).
+ * [DIHAPUS] Fungsi findMatchingCategory tidak diperlukan lagi.
  */
-function findMatchingCategory(itemName, userCategories) {
-    if (!itemName || !userCategories) {
-        return null;
-    }
-    
-    const itemNameLower = itemName.toLowerCase();
-    
-    // Coba cari kecocokan
-    const found = userCategories.find(cat => {
-        // Cek jika nama kategori (misal: "susu") ada di dalam nama item (misal: "susu uht")
-        return itemNameLower.includes(cat.name.toLowerCase());
-    });
-    
-    return found ? found.id : null;
-}
 
 /**
- * Fungsi utama yang akan dipanggil oleh router.
- * Menggabungkan panggilan AI dengan logika pencocokan kategori.
- * Disesuaikan untuk Hono (menerima 'c' sebagai context).
+ * [PERBAIKAN] Fungsi utama sekarang mengirim kategori ke Gemini.
  */
 export async function processScanRequest(c, env) {
     const body = await c.req.json();
     const { image, wallet_id } = body;
-    const userId = c.get('user').id; // Ambil user dari Hono context (asumsi middleware 'protect' Anda menyediakannya)
 
     if (!image || !wallet_id) {
         throw new Error('Data gambar dan wallet_id diperlukan');
@@ -135,28 +114,19 @@ export async function processScanRequest(c, env) {
         throw new Error('GEMINI_API_KEY belum diatur di Cloudflare Worker secrets.');
     }
 
-    // 1. Panggil Gemini API
-    const scanResult = await callGeminiAPI(image, env.GEMINI_API_KEY);
-
-    // 2. Ambil daftar kategori PENGELUARAN milik pengguna dari D1
+    // 1. Ambil daftar kategori PENGELUARAN milik pengguna dari D1
     const categoriesStmt = env.DB.prepare(
         "SELECT id, name FROM categories WHERE wallet_id = ? AND type = 'EXPENSE'"
     );
     const { results: userCategories } = await categoriesStmt.bind(wallet_id).all();
 
-    // 3. Cocokkan Kategori (Logika Opsi B)
-    const matchedItems = scanResult.items.map(item => {
-        const category_id = findMatchingCategory(item.nama, userCategories);
-        return {
-            ...item,
-            category_id: category_id // Akan jadi "cat_123" atau null
-        };
-    });
+    // 2. Panggil Gemini API dan KIRIMKAN daftar kategori
+    const scanResult = await callGeminiAPI(image, env.GEMINI_API_KEY, userCategories);
 
-    // 4. Kembalikan data yang sudah diproses
+    // 3. Kembalikan data (sudah termasuk category_id dari AI)
     return {
         merchant: scanResult.merchant || "Merchant Tidak Dikenal",
         tanggal: scanResult.tanggal,
-        items: matchedItems
+        items: scanResult.items
     };
 }

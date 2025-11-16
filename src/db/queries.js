@@ -647,22 +647,24 @@ export const updateNote = async (db, noteId, data, userId) => {
 export const deleteNote = async (db, noteId) => {
     return await db.prepare('DELETE FROM notes WHERE id = ?').bind(noteId).run();
 };
-// --- [BARU] Fungsi untuk Ekspor Data ---
+// [PERBAIKAN UNTUK FILE: casflo-api/src/db/queries.js]
+// Ganti fungsi exportTransactionsAsCSV yang lama dengan ini:
+
 export const exportTransactionsAsCSV = async (db, walletId) => {
-    // Query untuk mengambil semua data yang relevan
+    // [PERBAIKAN 1] Tambahkan "c.type as category_type" dan "s.category_id IS NOT NULL"
     const { results } = await db.prepare(`
         SELECT 
             t.transaction_date,
             t.description,
             c.name as category_name,
-            c.type as category_type,
+            c.type as category_type, 
             a.name as account_name,
             s.amount
         FROM transactions t
         JOIN transaction_splits s ON t.id = s.transaction_id
         JOIN accounts a ON s.account_id = a.id
         LEFT JOIN categories c ON s.category_id = c.id
-        WHERE t.wallet_id = ?
+        WHERE t.wallet_id = ? AND s.category_id IS NOT NULL
         ORDER BY t.transaction_date DESC
     `).bind(walletId).all();
 
@@ -670,19 +672,22 @@ export const exportTransactionsAsCSV = async (db, walletId) => {
         return "Tanggal,Deskripsi,Kategori,Tipe,Akun,Pemasukan,Pengeluaran\nTidak ada data untuk diekspor.";
     }
 
-    // Buat header CSV
     let csvContent = "Tanggal,Deskripsi,Kategori,Tipe,Akun,Pemasukan,Pengeluaran\n";
 
-    // Tambahkan baris data
     results.forEach(row => {
         const date = row.transaction_date;
         const description = `"${row.description || ''}"`;
-        const category = `"${row.category_name || 'Transfer'}"`;
-        const type = `"${row.category_type || 'TRANSFER'}"`;
+        const category = `"${row.category_name}"`; // Tidak akan pernah "Transfer" lagi
+        const type = `"${row.category_type}"`;
         const account = `"${row.account_name}"`;
-        // Pisahkan amount ke kolom Pemasukan atau Pengeluaran
-        const income = row.amount > 0 ? row.amount / 100 : 0;
-        const expense = row.amount < 0 ? -row.amount / 100 : 0;
+        
+        // [PERBAIKAN 2] Logika Pemasukan/Pengeluaran berdasarkan Tipe Kategori
+        // Amount dari EXPENSE akan positif (DEBIT), Amount dari INCOME akan negatif (CREDIT)
+        
+        const amountInRupiah = Math.abs(row.amount); // Ambil nilai absolut
+
+        const income = row.category_type === 'INCOME' ? amountInRupiah : 0;
+        const expense = row.category_type === 'EXPENSE' ? amountInRupiah : 0;
 
         csvContent += `${date},${description},${category},${type},${account},${income},${expense}\n`;
     });
