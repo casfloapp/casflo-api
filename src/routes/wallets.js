@@ -443,14 +443,14 @@ walletRoutes.route('/:walletId', walletSpecificRoutes);
 
 
 
-// --- [BLOK BARU UNTUK BATCH TRANSACTIONS] ---
-// Endpoint ini akan berada di /api/v1/wallets/:id/transactions/batch
-walletRoutes.post('/:id/transactions/batch', protect, async (c) => {
+// [PERBAIKAN UNTUK FILE: casflo-api/src/routes/wallets.js]
+
+// Hapus endpoint '/:id/transactions/batch' yang lama dan ganti dengan ini:
+walletRoutes.post('/:walletId/transactions/batch', protect, async (c) => {
     try {
-        const wallet_id = c.req.param('id');
+        const wallet_id = c.req.param('walletId'); // [PERBAIKAN] Ganti nama param
         const userId = c.get('user').id;
-        const body = await c.req.json();
-        const { transactions } = body;
+        const { transactions } = await c.req.json();
 
         if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
              return c.json({ error: 'Array "transactions" diperlukan' }, 400);
@@ -459,39 +459,59 @@ walletRoutes.post('/:id/transactions/batch', protect, async (c) => {
         const statements = [];
         
         for (const item of transactions) {
-            if (!item.amount || !item.category_id || !item.from_account_id || !item.description || !item.transaction_date) {
-                console.warn("Melewatkan item batch yang tidak lengkap:", item);
+            // Validasi data item
+            if (!item.amount || !item.category_id || !item.from_account_id || !item.description || !item.transaction_date || item.type !== 'EXPENSE') {
+                console.warn("Melewatkan item batch yang tidak lengkap atau tipe salah:", item);
                 continue; 
             }
             
-            const txId = crypto.randomUUID();
-            const splitId = crypto.randomUUID();
-            const amount = Math.abs(Number(item.amount)); 
+            const newTxId = `tx-${crypto.randomUUID()}`;
+            // [PERBAIKAN] Jumlah harus positif
+            const amount = Math.round(Math.abs(item.amount)); 
             
-            // 1. Buat Transaksi (pembungkus)
+            // 1. INSERT Transaksi (wrapper)
             statements.push(
-                c.env.DB.prepare(queries.createTransaction)
+                c.env.DB.prepare('INSERT INTO transactions (id, wallet_id, contact_id, description, transaction_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
                     .bind(
-                        txId, 
+                        newTxId, 
                         wallet_id, 
-                        null, // contact_id (null)
+                        null, // contact_id
                         item.description, 
                         item.transaction_date, 
                         userId
                     )
             );
             
-            // 2. Buat Split (DEBIT)
+            // 2. INSERT Split DEBIT (Kategori)
             statements.push(
-                c.env.DB.prepare(queries.createTransactionSplit)
+                c.env.DB.prepare('INSERT INTO transaction_splits (id, transaction_id, account_id, category_id, amount, type) VALUES (?, ?, ?, ?, ?, ?)')
                     .bind(
-                        splitId,
-                        txId,
+                        `spl-${crypto.randomUUID()}`,
+                        newTxId,
                         item.from_account_id,
                         item.category_id,
-                        -amount, // Simpan sebagai negatif
+                        amount, // Positif
                         'DEBIT'
                     )
+            );
+
+            // 3. INSERT Split CREDIT (Akun)
+             statements.push(
+                c.env.DB.prepare('INSERT INTO transaction_splits (id, transaction_id, account_id, category_id, amount, type) VALUES (?, ?, ?, ?, ?, ?)')
+                    .bind(
+                        `spl-${crypto.randomUUID()}`,
+                        newTxId,
+                        item.from_account_id,
+                        null, // Kategori null
+                        -amount, // Negatif
+                        'CREDIT'
+                    )
+            );
+            
+            // 4. UPDATE Saldo Akun
+            statements.push(
+                c.env.DB.prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?")
+                    .bind(amount, item.from_account_id)
             );
         }
         
@@ -499,15 +519,16 @@ walletRoutes.post('/:id/transactions/batch', protect, async (c) => {
              return c.json({ error: 'Tidak ada transaksi valid untuk disimpan' }, 400);
         }
 
+        // Jalankan semua query dalam satu batch
         await c.env.DB.batch(statements);
 
-        return c.json({ success: true, data: { count: statements.length / 2 } });
+        // Hitung jumlah transaksi yang sukses (jumlah statements dibagi 4)
+        return c.json({ success: true, data: { count: statements.length / 4 } });
 
     } catch (error) {
         console.error("Error in batch transaction insert:", error);
         return c.json({ error: error.message }, 500);
     }
 });
-// --- [AKHIR BLOK BARU] ---
 
 export default walletRoutes;
