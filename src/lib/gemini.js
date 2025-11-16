@@ -5,7 +5,9 @@
  * Versi ini menerima daftar kategori pengguna untuk pencocokan AI.
  */
 async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    // [PERBAIKAN KUNCI DI SINI] Menghapus "-latest" dari nama model
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
     const cleanBase64 = base64Image.split(',')[1];
     
     // [PENINGKATAN] Buat daftar kategori untuk prompt
@@ -96,7 +98,7 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
 }
 
 /**
- * [DIHAPUS] Fungsi findMatchingCategory tidak diperlukan lagi.
+ * [DIHAPUS] Fungsi findMatchingCategory tidak diperlukan lagi karena AI yang menangani.
  */
 
 /**
