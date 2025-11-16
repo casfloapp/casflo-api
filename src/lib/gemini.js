@@ -6,8 +6,9 @@
 async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     
     // [PERBAIKAN KUNCI DI SINI] Mengganti nama model ke 'gemini-pro-vision'
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`;
-    
+ // [BARIS BARU YANG BENAR]
+    const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+ 
     const cleanBase64 = base64Image.split(',')[1];
     
     const categoriesPromptString = userCategories.map(cat => `- ${cat.name} (id: ${cat.id})`).join('\n');
