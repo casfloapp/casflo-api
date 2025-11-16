@@ -35,7 +35,6 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
 
     const categoriesPromptString = userCategories.map(cat => `- ${cat.name} (id: ${cat.id})`).join('\n');
 
-    // ... Prompt Anda (sudah benar) ...
     const prompt = `
       Anda adalah asisten pemindai struk yang ahli untuk aplikasi keuangan Casflo.
       Tugas Anda adalah menganalisis gambar struk ini dan mengekstrak informasi berikut:
@@ -87,6 +86,7 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
         const jsonText = response.text();
         const scanResult = JSON.parse(jsonText);
 
+        // 6. Proses hasil
         if (scanResult.items && Array.isArray(scanResult.items)) {
             scanResult.items = scanResult.items.map(item => ({
                 ...item,
