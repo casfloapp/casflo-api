@@ -444,8 +444,8 @@ walletRoutes.route('/:walletId', walletSpecificRoutes);
 
 
 // [PERBAIKAN UNTUK FILE: casflo-api/src/routes/wallets.js]
+// Ganti endpoint '/:id/transactions/batch' yang lama dengan ini:
 
-// Hapus endpoint '/:id/transactions/batch' yang lama dan ganti dengan ini:
 walletRoutes.post('/:walletId/transactions/batch', protect, async (c) => {
     try {
         const wallet_id = c.req.param('walletId'); // [PERBAIKAN] Ganti nama param
@@ -466,7 +466,6 @@ walletRoutes.post('/:walletId/transactions/batch', protect, async (c) => {
             }
             
             const newTxId = `tx-${crypto.randomUUID()}`;
-            // [PERBAIKAN] Jumlah harus positif
             const amount = Math.round(Math.abs(item.amount)); 
             
             // 1. INSERT Transaksi (wrapper)
@@ -519,10 +518,7 @@ walletRoutes.post('/:walletId/transactions/batch', protect, async (c) => {
              return c.json({ error: 'Tidak ada transaksi valid untuk disimpan' }, 400);
         }
 
-        // Jalankan semua query dalam satu batch
         await c.env.DB.batch(statements);
-
-        // Hitung jumlah transaksi yang sukses (jumlah statements dibagi 4)
         return c.json({ success: true, data: { count: statements.length / 4 } });
 
     } catch (error) {
