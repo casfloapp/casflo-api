@@ -1,6 +1,7 @@
-// [PERBAIKAN ADAPTASI SDK v2 UNTUK FILE: casflo-api/src/lib/gemini.js]
+// [PERBAIKAN ADAPTASI SDK v3 UNTUK FILE: casflo-api/src/lib/gemini.js]
 
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
+// [PERBAIKAN KUNCI] Kita impor dari '@google/genai/node'
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/genai/node";
 
 /**
  * Mengonversi Base64 ke format yang dimengerti oleh SDK @google/genai
@@ -21,7 +22,6 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     
     const ai = new GoogleGenerativeAI(apiKey);
     
-    // [PERBAIKAN 1] Konfigurasi model SEKARANG HANYA berisi nama model dan safetySettings
     const model = ai.getGenerativeModel({
         model: "gemini-1.5-flash",
         safetySettings: [
@@ -30,7 +30,6 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
         ],
-        // generationConfig dipindahkan dari sini...
     });
 
     const categoriesPromptString = userCategories.map(cat => `- ${cat.name} (id: ${cat.id})`).join('\n');
@@ -70,7 +69,6 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     const promptPart = { text: prompt };
 
     try {
-        // [PERBAIKAN 2] ...dan dipindahkan ke SINI
         const result = await model.generateContent({
             contents: [{ parts: [promptPart, imagePart] }],
             generationConfig: {
@@ -86,7 +84,6 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
         const jsonText = response.text();
         const scanResult = JSON.parse(jsonText);
 
-        // 6. Proses hasil
         if (scanResult.items && Array.isArray(scanResult.items)) {
             scanResult.items = scanResult.items.map(item => ({
                 ...item,
@@ -109,7 +106,7 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
 }
 
 /**
- * Fungsi utama yang dipanggil oleh router. (Tidak berubah)
+ * Fungsi utama yang dipanggil oleh router.
  */
 export async function processScanRequest(c, env) {
     const body = await c.req.json();
