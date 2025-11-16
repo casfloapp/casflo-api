@@ -441,4 +441,73 @@ walletSpecificRoutes.delete('/members/:userId', async (c) => {
 // Menerapkan grup rute spesifik wallet ke path utama
 walletRoutes.route('/:walletId', walletSpecificRoutes);
 
+
+
+// --- [BLOK BARU UNTUK BATCH TRANSACTIONS] ---
+// Endpoint ini akan berada di /api/v1/wallets/:id/transactions/batch
+walletRoutes.post('/:id/transactions/batch', protect, async (c) => {
+    try {
+        const wallet_id = c.req.param('id');
+        const userId = c.get('user').id;
+        const body = await c.req.json();
+        const { transactions } = body;
+
+        if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+             return c.json({ error: 'Array "transactions" diperlukan' }, 400);
+        }
+        
+        const statements = [];
+        
+        for (const item of transactions) {
+            if (!item.amount || !item.category_id || !item.from_account_id || !item.description || !item.transaction_date) {
+                console.warn("Melewatkan item batch yang tidak lengkap:", item);
+                continue; 
+            }
+            
+            const txId = crypto.randomUUID();
+            const splitId = crypto.randomUUID();
+            const amount = Math.abs(Number(item.amount)); 
+            
+            // 1. Buat Transaksi (pembungkus)
+            statements.push(
+                c.env.DB.prepare(queries.createTransaction)
+                    .bind(
+                        txId, 
+                        wallet_id, 
+                        null, // contact_id (null)
+                        item.description, 
+                        item.transaction_date, 
+                        userId
+                    )
+            );
+            
+            // 2. Buat Split (DEBIT)
+            statements.push(
+                c.env.DB.prepare(queries.createTransactionSplit)
+                    .bind(
+                        splitId,
+                        txId,
+                        item.from_account_id,
+                        item.category_id,
+                        -amount, // Simpan sebagai negatif
+                        'DEBIT'
+                    )
+            );
+        }
+        
+        if (statements.length === 0) {
+             return c.json({ error: 'Tidak ada transaksi valid untuk disimpan' }, 400);
+        }
+
+        await c.env.DB.batch(statements);
+
+        return c.json({ success: true, data: { count: statements.length / 2 } });
+
+    } catch (error) {
+        console.error("Error in batch transaction insert:", error);
+        return c.json({ error: error.message }, 500);
+    }
+});
+// --- [AKHIR BLOK BARU] ---
+
 export default walletRoutes;

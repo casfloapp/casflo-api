@@ -1,7 +1,6 @@
 /**
  * Memanggil Google Gemini 1.5 Flash API.
  * Model ini dioptimalkan untuk kecepatan, yang ideal untuk scan struk.
- * Menggunakan Kunci API yang disimpan di env.GEMINI_API_KEY.
  */
 async function callGeminiAPI(base64Image, apiKey) {
     // 1. Tentukan URL API
@@ -14,8 +13,8 @@ async function callGeminiAPI(base64Image, apiKey) {
     const prompt = `
       Anda adalah asisten pemindai struk yang ahli untuk aplikasi keuangan Casflo.
       Tugas Anda adalah menganalisis gambar struk ini dan mengekstrak informasi berikut:
-      1.  "merchant": Nama toko atau merchant (misal: "Indomaret", "KFC", "Alfamart"). Jika tidak ada, isi "Merchant Tidak Dikenal".
-      2.  "tanggal": Tanggal transaksi dalam format YYYY-MM-DD. Jika tidak ada, gunakan tanggal hari ini.
+      1.  "merchant": Nama toko atau merchant (misal: "Indomaret", "KFC", "Alfamart").
+      2.  "tanggal": Tanggal transaksi dalam format YYYY-MM-DD.
       3.  "items": Sebuah array dari SETIAP barang yang dibeli. Setiap barang harus memiliki "nama" dan "harga" (sebagai angka, tanpa "Rp" atau ".").
 
       PENTING:
@@ -44,14 +43,13 @@ async function callGeminiAPI(base64Image, apiKey) {
                     { "text": prompt }, // Perintah kita
                     {
                         "inline_data": { // Gambar struknya
-                            "mime_type": "image/jpeg", // Asumsi jpeg, bisa juga png
+                            "mime_type": "image/jpeg", // Asumsi jpeg
                             "data": cleanBase64
                         }
                     }
                 ]
             }
         ],
-        // Opsi untuk memastikan outputnya JSON
         "generationConfig": {
             "responseMimeType": "application/json" 
         }
@@ -76,7 +74,6 @@ async function callGeminiAPI(base64Image, apiKey) {
 
     // 6. Ekstrak JSON dari respons AI
     try {
-        // Respons Gemini akan ada di dalam 'text'
         const jsonText = responseData.candidates[0].content.parts[0].text;
         const result = JSON.parse(jsonText);
         
@@ -113,7 +110,7 @@ function findMatchingCategory(itemName, userCategories) {
     
     // Coba cari kecocokan
     const found = userCategories.find(cat => {
-        // Cek jika nama kategori (misal: "susu") ada di dalam nama item (misal: "susu uht full cream")
+        // Cek jika nama kategori (misal: "susu") ada di dalam nama item (misal: "susu uht")
         return itemNameLower.includes(cat.name.toLowerCase());
     });
     
@@ -123,10 +120,12 @@ function findMatchingCategory(itemName, userCategories) {
 /**
  * Fungsi utama yang akan dipanggil oleh router.
  * Menggabungkan panggilan AI dengan logika pencocokan kategori.
+ * Disesuaikan untuk Hono (menerima 'c' sebagai context).
  */
-export async function processScanRequest(request, env) {
-    const body = await request.json();
+export async function processScanRequest(c, env) {
+    const body = await c.req.json();
     const { image, wallet_id } = body;
+    const userId = c.get('user').id; // Ambil user dari Hono context (asumsi middleware 'protect' Anda menyediakannya)
 
     if (!image || !wallet_id) {
         throw new Error('Data gambar dan wallet_id diperlukan');
