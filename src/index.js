@@ -22,7 +22,7 @@ app.use('*', cors({
 app.get('/', (c) => {
   return c.json({
     success: true,
-    message: 'Selamat datang di KasKita API v1!',
+    message: 'Selamat datang di casflo API v1!',
   });
 });
 
