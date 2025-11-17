@@ -1,7 +1,7 @@
-// [PERBAIKAN ADAPTASI SDK v3 UNTUK FILE: casflo-api/src/lib/gemini.js]
+// [PERBAIKAN ADAPTASI SDK TERBARU UNTUK FILE: casflo-api/src/lib/gemini.js]
 
-// [PERBAIKAN KUNCI] Kita impor dari '@google/genai/node'
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/genai/node";
+// [PERBAIKAN] Impor GoogleGenAI, bukan GoogleGenerativeAI
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai/node";
 
 /**
  * Mengonversi Base64 ke format yang dimengerti oleh SDK @google/genai
@@ -9,28 +9,20 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/ge
 function base64ToGenerativePart(base64Data, mimeType) {
     return {
         inlineData: {
-            data: base64Data.split(',')[1], // Hapus prefix "data:image/jpeg;base64,"
+            // Hapus prefix jika ada (kode Anda sudah benar)
+            data: base64Data.includes(',') ? base64Data.split(',')[1] : base64Data,
             mimeType
         },
     };
 }
 
 /**
- * Memanggil Google Gemini API menggunakan SDK @google/genai.
+ * Memanggil Google Gemini API menggunakan SDK @google/genai versi terbaru.
  */
 async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
-    
-    const ai = new GoogleGenerativeAI(apiKey);
-    
-    const model = ai.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ],
-    });
+
+    // [PERBAIKAN] Inisialisasi menggunakan new GoogleGenAI({ apiKey })
+    const ai = new GoogleGenAI({ apiKey: apiKey });
 
     const categoriesPromptString = userCategories.map(cat => `- ${cat.name} (id: ${cat.id})`).join('\n');
 
@@ -69,26 +61,38 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     const promptPart = { text: prompt };
 
     try {
-        const result = await model.generateContent({
+        // [PERBAIKAN] Panggilan API disederhanakan menjadi satu fungsi.
+        // Konfigurasi seperti responseMimeType dan safetySettings dimasukkan ke dalam objek `config`.
+        const response = await ai.models.generateContent({
+            // [PERBAIKAN] Gunakan model yang direkomendasikan
+            model: 'gemini-2.5-flash',
             contents: [{ parts: [promptPart, imagePart] }],
-            generationConfig: {
-                responseMimeType: "application/json"
+            // [PERBAIKAN] 'generationConfig' diubah menjadi 'config'
+            config: {
+                responseMimeType: "application/json",
+                safetySettings: [
+                    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                ],
             }
         });
-        
-        const response = result.response;
-        if (!response) {
-            throw new Error("AI tidak memberikan respons.");
+
+        // [PERBAIKAN] Akses teks lebih mudah dengan properti .text
+        const jsonText = response.text;
+        if (!jsonText) {
+            throw new Error("AI tidak memberikan respons teks.");
         }
-        
-        const jsonText = response.text();
+
         const scanResult = JSON.parse(jsonText);
 
+        // Logika bisnis Anda (sudah benar, tidak perlu diubah)
         if (scanResult.items && Array.isArray(scanResult.items)) {
             scanResult.items = scanResult.items.map(item => ({
                 ...item,
                 harga: parseInt(String(item.harga).replace(/[^0-9]/g, ''), 10) || 0,
-                category_id: item.category_id || null 
+                category_id: item.category_id || null
             }));
         }
         if (!scanResult.tanggal) {
@@ -101,35 +105,9 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
         if (error.message.includes('BLOCKED_BY_SAFETY')) {
             throw new Error("Gambar diblokir oleh filter keamanan Google. Coba gambar lain.");
         }
+         if (error instanceof SyntaxError) {
+            throw new Error("Gagal mem-parsing respons dari AI. Mungkin bukan JSON yang valid.");
+        }
         throw new Error(`Error dari Gemini SDK: ${error.message}`);
     }
-}
-
-/**
- * Fungsi utama yang dipanggil oleh router.
- */
-export async function processScanRequest(c, env) {
-    const body = await c.req.json();
-    const { image, wallet_id } = body;
-
-    if (!image || !wallet_id) {
-        throw new Error('Data gambar dan wallet_id diperlukan');
-    }
-    
-    if (!env.GEMINI_API_KEY) {
-        throw new Error('GEMINI_API_KEY belum diatur di Cloudflare Worker secrets.');
-    }
-
-    const categoriesStmt = env.DB.prepare(
-        "SELECT id, name FROM categories WHERE wallet_id = ? AND type = 'EXPENSE'"
-    );
-    const { results: userCategories } = await categoriesStmt.bind(wallet_id).all();
-
-    const scanResult = await callGeminiAPI(image, env.GEMINI_API_KEY, userCategories);
-
-    return {
-        merchant: scanResult.merchant || "Merchant Tidak Dikenal",
-        tanggal: scanResult.tanggal,
-        items: scanResult.items
-    };
 }
