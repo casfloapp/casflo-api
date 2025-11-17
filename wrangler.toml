@@ -2,8 +2,9 @@ name = "casflo-api"
 main = "src/index.js"
 compatibility_date = "2024-05-01"
 
-# [PERBAIKAN DI SINI] Tambahkan baris ini
+# [PERBAIKAN DI SINI] Tambahkan 2 baris ini
 compatibility_flags = [ "nodejs_compat" ]
+
 
 # Menghubungkan ke Database D1
 [[d1_databases]]

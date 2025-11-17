@@ -71,7 +71,7 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
     const promptPart = { text: prompt };
 
     try {
-        // [PERBAIKAN 3] ...dan dipindahkan ke SINI
+        // [PERBAIKAN 3] ...dan 'generationConfig' dipindahkan ke SINI
         const result = await model.generateContent({
             contents: [{ parts: [promptPart, imagePart] }],
             generationConfig: {
