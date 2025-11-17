@@ -5,14 +5,14 @@
   "main": "src/index.js",
   "scripts": {
     "start": "wrangler dev",
-    "deploy": "wrangler deploy --minify"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@google/genai": "^1.29.1",
-    "bcryptjs": "^3.0.2",
+    "bcryptjs": "^2.4.3",
     "hono": "^4.4.7"
   },
   "devDependencies": {
-    "wrangler": "^3.60.3"
+    "wrangler": "^4.0.0"
   }
 }
