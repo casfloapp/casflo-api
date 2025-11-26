@@ -1,4 +1,4 @@
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 function base64ToPart(base64Data, mimeType) {
   return { inlineData: { data: base64Data.includes(',') ? base64Data.split(',')[1] : base64Data, mimeType } };
