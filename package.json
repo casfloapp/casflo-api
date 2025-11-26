@@ -1,18 +1,23 @@
 {
   "name": "casflo-api",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
-  "main": "src/index.ts",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler publish"
   },
   "dependencies": {
-    "hono": "^4.5.7",
-    "@hono/zod-validator": "^0.2.0",
-    "zod": "^3.23.8",
+    "hono": "^4.10.7",
+    "jose": "^4.15.9",
+    "zod": "^3.25.76",
+    "uuid": "^9.0.1",
+    "bcryptjs": "^2.4.3",
     "@google/genai": "^0.5.0",
-    "openai": "^4.56.0",
-    "jose": "^5.6.3"
+    "openai": "^4.56.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.51.0",
+    "typescript": "^5.9.3"
   }
 }
