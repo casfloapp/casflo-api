@@ -1,5 +1,5 @@
 {
-  "name": "casflo-worker-api",
+  "name": "casflo-api",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,13 +8,14 @@
     "deploy": "wrangler publish"
   },
   "dependencies": {
-    "hono": "^3.3.0",
-    "jose": "^4.15.0",
-    "zod": "^3.22.2",
-    "uuid": "^9.0.0"
+    "hono": "^3.12.12",
+    "jose": "^4.15.9",
+    "zod": "^3.25.76",
+    "uuid": "^9.0.1",
+    "@google/genai": "^0.0.0" 
   },
   "devDependencies": {
-    "wrangler": "^3.0.0",
-    "typescript": "^5.0.0"
+    "wrangler": "^4.51.0",
+    "typescript": "^5.9.3"
   }
 }

@@ -1,42 +1,28 @@
-import { Hono } from "hono";
-import auth from "./routes/auth";
-import books from "./routes/books";
-import contacts from "./routes/contacts";
-import categories from "./routes/categories";
-import members from "./routes/members";
-import accounts from "./routes/accounts";
-import transactions from "./routes/transactions";
-import tx_splits from "./routes/tx_splits";
-import verification from "./routes/verification";
-import reminders from "./routes/reminders";
-import notes from "./routes/notes";
-import summary from "./routes/summary";
+import { Hono } from 'hono';
+import auth from './routes/auth';
+import books from './routes/books';
+import categories from './routes/categories';
+import transactions from './routes/transactions';
+import scan from './routes/scan';
 
 const app = new Hono();
 
-app.use("*", async (c, next) => {
-  c.header("Access-Control-Allow-Origin", c.req.headers.get("Origin") || "*");
-  c.header("Access-Control-Allow-Credentials", "true");
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  if (c.req.method === "OPTIONS") return c.text("");
+app.use('*', async (c, next) => {
+  c.header('Access-Control-Allow-Origin', c.req.headers.get('Origin') || '*');
+  c.header('Access-Control-Allow-Credentials', 'true');
+  c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (c.req.method === 'OPTIONS') return c.text('');
   await next();
 });
 
-app.route("/api/auth", auth);
-app.route("/api/books", books);
-app.route("/api/contacts", contacts);
-app.route("/api/categories", categories);
-app.route("/api/members", members);
-app.route("/api/accounts", accounts);
-app.route("/api/transactions", transactions);
-app.route("/api/tx_splits", tx_splits);
-app.route("/api/verification", verification);
-app.route("/api/reminders", reminders);
-app.route("/api/notes", notes);
-app.route("/api/summary", summary);
+app.route('/api/auth', auth);
+app.route('/api/books', books);
+app.route('/api/categories', categories);
+app.route('/api/transactions', transactions);
+app.route('/api/scan', scan);
 
-app.get("/health", (c) => c.text("ok"));
+app.get('/health', (c) => c.text('ok'));
 
 export default {
   fetch: app.fetch

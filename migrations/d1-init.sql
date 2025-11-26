@@ -1,9 +1,4 @@
--- Use this if you need to init a fresh DB. If you already have DB, run the migration script we prepared.
-CREATE TABLE IF NOT EXISTS _cf_KV (
-  key TEXT PRIMARY KEY,
-  value BLOB
-) WITHOUT ROWID;
-
+-- Full schema for Casflo (books-based)
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   full_name TEXT NOT NULL,
@@ -81,14 +76,6 @@ CREATE TABLE IF NOT EXISTS budgets (
   start_date DATE NOT NULL,
   created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
   FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS budget_categories (
-  budget_id TEXT NOT NULL,
-  category_id TEXT NOT NULL,
-  PRIMARY KEY (budget_id, category_id),
-  FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE CASCADE,
-  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS recurring_transactions (
