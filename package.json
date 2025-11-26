@@ -1,18 +1,20 @@
 {
-  "name": "api.casflo.id",
-  "version": "0.1.0",
+  "name": "casflo-worker-api",
+  "version": "1.0.0",
   "private": true,
-  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "start": "wrangler dev",
-    "deploy": "wrangler deploy --minify"
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler publish"
   },
   "dependencies": {
-    "@google/genai": "^1.29.1",
-    "bcryptjs": "^3.0.2",
-    "hono": "^4.4.7"
+    "hono": "^3.3.0",
+    "jose": "^4.15.0",
+    "zod": "^3.22.2",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "wrangler": "^3.60.3"
+    "wrangler": "^3.0.0",
+    "typescript": "^5.0.0"
   }
 }
