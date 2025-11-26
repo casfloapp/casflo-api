@@ -2,23 +2,11 @@ import { Hono } from "hono";
 import { v4 as uuid } from "uuid";
 import { dbAll, dbGet, dbRun } from "../lib/db";
 import { ok, err } from "../lib/response";
-import { verifyAccessToken } from "../lib/jwt";
+import { requireAuth } from "../middleware/auth";
 
 const router = new Hono();
-const auth = async (c, next) => {
-  try {
-    const header = c.req.headers.get("Authorization") || "";
-    const m = header.match(/Bearer (.+)/);
-    if (!m) return c.text(JSON.stringify({ status: "error", message: "No auth" }), 401);
-    const payload = await verifyAccessToken(m[1], c.env);
-    c.set("user", payload);
-    await next();
-  } catch (e) {
-    return c.text(JSON.stringify({ status: "error", message: "Unauthorized" }), 401);
-  }
-};
 
-router.get("/", auth, async (c) => {
+router.get("/", requireAuth(), async (c) => {
   const user = c.get("user");
   const rows = await dbAll(c.env, `
     SELECT b.* FROM books b
@@ -29,7 +17,7 @@ router.get("/", auth, async (c) => {
   return ok(rows);
 });
 
-router.post("/", auth, async (c) => {
+router.post("/", requireAuth(), async (c) => {
   try {
     const user = c.get("user");
     const body = await c.req.json();
@@ -46,14 +34,14 @@ router.post("/", auth, async (c) => {
   }
 });
 
-router.get("/:id", auth, async (c) => {
+router.get("/:id", requireAuth(), async (c) => {
   const id = c.req.param("id");
   const book = await dbGet(c.env, "SELECT * FROM books WHERE id = ?;", [id]);
   if (!book) return err("Book not found", 404);
   return ok(book);
 });
 
-router.put("/:id", auth, async (c) => {
+router.put("/:id", requireAuth(), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -66,7 +54,7 @@ router.put("/:id", auth, async (c) => {
   }
 });
 
-router.delete("/:id", auth, async (c) => {
+router.delete("/:id", requireAuth(), async (c) => {
   const id = c.req.param("id");
   await dbRun(c.env, "DELETE FROM books WHERE id = ?;", [id]);
   return ok(null, "Book deleted");

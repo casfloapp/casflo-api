@@ -5,12 +5,10 @@ import contacts from "./routes/contacts";
 import categories from "./routes/categories";
 import members from "./routes/members";
 import accounts from "./routes/accounts";
-import budgets from "./routes/budgets";
-import recurring from "./routes/recurring";
-import settings from "./routes/settings";
 import transactions from "./routes/transactions";
 import tx_splits from "./routes/tx_splits";
 import verification from "./routes/verification";
+import reminders from "./routes/reminders";
 import notes from "./routes/notes";
 import summary from "./routes/summary";
 
@@ -31,14 +29,14 @@ app.route("/api/contacts", contacts);
 app.route("/api/categories", categories);
 app.route("/api/members", members);
 app.route("/api/accounts", accounts);
-app.route("/api/budgets", budgets);
-app.route("/api/recurring", recurring);
-app.route("/api/settings", settings);
 app.route("/api/transactions", transactions);
 app.route("/api/tx_splits", tx_splits);
 app.route("/api/verification", verification);
+app.route("/api/reminders", reminders);
 app.route("/api/notes", notes);
 app.route("/api/summary", summary);
+
+app.get("/health", (c) => c.text("ok"));
 
 export default {
   fetch: app.fetch

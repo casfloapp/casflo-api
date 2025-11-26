@@ -50,8 +50,10 @@ router.post("/login", async (c) => {
     const expiresAt = new Date(Date.now() + Number(c.env.REFRESH_TOKEN_EXPIRES_DAYS || 30) * 24 * 3600 * 1000).toISOString();
     await dbRun(c.env, "INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?);", [rtId, user.id, refreshToken, expiresAt]);
 
-    const cookie = `refreshToken=${encodeURIComponent(refreshToken)}; HttpOnly; Path=/; Max-Age=${60*60*24*Number(c.env.REFRESH_TOKEN_EXPIRES_DAYS||30)}; SameSite=Strict; Secure`;
-    return new Response(JSON.stringify({ status: "success", data: { accessToken, user: { id: user.id, full_name: user.full_name, email: user.email } }, message: "Logged in" }), { headers: { "Content-Type": "application/json", "Set-Cookie": cookie } });
+    const cookieHeader = c.req.headers.get("Cookie") || "";
+
+    const refreshCookie = `refreshToken=${encodeURIComponent(refreshToken)}; HttpOnly; Path=/; Max-Age=${60*60*24*Number(c.env.REFRESH_TOKEN_EXPIRES_DAYS||30)}; SameSite=Strict; Secure`;
+    return new Response(JSON.stringify({ status: "success", data: { accessToken, user: { id: user.id, full_name: user.full_name, email: user.email } }, message: "Logged in" }), { headers: { "Content-Type": "application/json", "Set-Cookie": refreshCookie } });
   } catch (e) {
     console.error(e);
     return err("Login failed", 500);
@@ -60,8 +62,8 @@ router.post("/login", async (c) => {
 
 router.post("/refresh", async (c) => {
   try {
-    const cookie = c.req.headers.get("Cookie") || "";
-    const m = cookie.match(/refreshToken=([^;]+)/);
+    const cookieHdr = c.req.headers.get("Cookie") || "";
+    const m = cookieHdr.match(/refreshToken=([^;]+)/);
     if (!m) return err("No refresh token", 401);
     const token = decodeURIComponent(m[1]);
 
@@ -77,8 +79,8 @@ router.post("/refresh", async (c) => {
     await dbRun(c.env, "INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?);", [newId, payload.id, newRefresh, expiresAt]);
 
     const accessToken = await signAccessToken({ id: payload.id }, c.env);
-    const cookie = `refreshToken=${encodeURIComponent(newRefresh)}; HttpOnly; Path=/; Max-Age=${60*60*24*Number(c.env.REFRESH_TOKEN_EXPIRES_DAYS||30)}; SameSite=Strict; Secure`;
-    return new Response(JSON.stringify({ status: "success", data: { accessToken }, message: "Token refreshed" }), { headers: { "Content-Type": "application/json", "Set-Cookie": cookie } });
+    const newRefreshCookie = `refreshToken=${encodeURIComponent(newRefresh)}; HttpOnly; Path=/; Max-Age=${60*60*24*Number(c.env.REFRESH_TOKEN_EXPIRES_DAYS||30)}; SameSite=Strict; Secure`;
+    return new Response(JSON.stringify({ status: "success", data: { accessToken }, message: "Token refreshed" }), { headers: { "Content-Type": "application/json", "Set-Cookie": newRefreshCookie } });
   } catch (e) {
     console.error(e);
     return err("Refresh failed", 401);
@@ -87,8 +89,8 @@ router.post("/refresh", async (c) => {
 
 router.post("/logout", async (c) => {
   try {
-    const cookie = c.req.headers.get("Cookie") || "";
-    const m = cookie.match(/refreshToken=([^;]+)/);
+    const cookieHdr = c.req.headers.get("Cookie") || "";
+    const m = cookieHdr.match(/refreshToken=([^;]+)/);
     if (m) {
       const token = decodeURIComponent(m[1]);
       await dbRun(c.env, "UPDATE refresh_tokens SET revoked = 1 WHERE token = ?;", [token]);

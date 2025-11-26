@@ -1,22 +1,11 @@
 import { Hono } from "hono";
 import { dbAll } from "../lib/db";
 import { ok, err } from "../lib/response";
+import { requireAuth } from "../middleware/auth";
 
 const router = new Hono();
-const auth = async (c, next) => { 
-  try {
-    const header = c.req.headers.get("Authorization") || "";
-    const m = header.match(/Bearer (.+)/);
-    if (!m) return c.text(JSON.stringify({ status: "error", message: "No auth" }), 401);
-    const payload = await import("../lib/jwt").then(m=>m.verifyAccessToken(m[1], c.env));
-    c.set("user", payload);
-    await next();
-  } catch (e) {
-    return c.text(JSON.stringify({ status: "error", message: "Unauthorized" }), 401);
-  }
-};
 
-router.get("/book/:bookId", auth, async (c) => {
+router.get("/book/:bookId", requireAuth(), async (c) => {
   try {
     const bookId = c.req.param("bookId");
     const rows = await dbAll(c.env, `
