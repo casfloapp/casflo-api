@@ -1,27 +1,23 @@
-# Casflo API - Cloudflare Worker + D1
+# Casflo API - Cloudflare Worker + D1 + Hybrid AI
 
-API keuangan pribadi (mirip casflo) berjalan 100% di Cloudflare Worker, pakai:
+Struktur:
 
-- Hono (framework HTTP untuk Worker)
-- Cloudflare D1
-- Prisma Client Edge + adapter D1
-- JWT Access + Refresh
-- Endpoint:
-  - /auth/register, /auth/login, /auth/refresh, /auth/logout
-  - /users/me
-  - /categories (CRUD)
-  - /transactions (CRUD)
-  - /reports/summary, /reports/category
-  - /openapi.json (minimal OpenAPI spec)
+- `src/index.ts` → Worker entry
+- `src/routes.ts` → daftar routes
+- `src/config/env.ts` → mapping ENV (ACCESS_TOKEN_EXPIRES, REFRESH_TOKEN_EXPIRES_DAYS, JWT_SECRET, JWT_REFRESH_SECRET, PASSWORD_PEPPER, OPENAI_API_KEY, GEMINI_API_KEY)
+- `src/middlewares/*` → auth, rate limit, validator (Zod)
+- `src/modules/*` → auth, books, categories, transactions, notes, summary (AI), settings
+- `src/services/*` → db (Prisma + D1), jwt, audit log
+- `src/utils/*` → helper
 
-## Setup Lokal
+## Setup lokal
 
 ```bash
 npm install
 npx prisma generate
 ```
 
-Buat file `.env` (hanya untuk prisma generate lokal):
+Buat `.env` hanya untuk Prisma lokal:
 
 ```env
 DATABASE_URL="file:./dev.db"
@@ -30,14 +26,23 @@ DATABASE_URL="file:./dev.db"
 Lalu:
 
 ```bash
-npx prisma db push   # hanya jika ingin buat DB lokal baru
+npx prisma db push   # jika mau DB lokal baru
+npm run dev
 ```
 
-## Cloudflare D1
+## ENV yang dipakai (Cloudflare Dashboard)
 
-- Buat D1 database di Cloudflare Dashboard
-- Catat `database_id` dan `database_name`
-- Update di `wrangler.toml`:
+- `ACCESS_TOKEN_EXPIRES` → contoh `15m`
+- `REFRESH_TOKEN_EXPIRES_DAYS` → contoh `30`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `PASSWORD_PEPPER`
+- `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
+
+## D1
+
+Atur di `wrangler.toml`:
 
 ```toml
 [[d1_databases]]
@@ -46,18 +51,18 @@ database_name = "casflo"
 database_id = "YOUR_D1_ID"
 ```
 
-Set `JWT_SECRET` di Dashboard (Project → Settings → Variables).
+## Endpoint AI
 
-## Dev
+- `POST /summary/ai/hybrid` → otomatis pilih Gemini / GPT
+- `POST /summary/ai/chatgpt` → pakai OpenAI saja
+- `POST /summary/ai/gemini` → pakai Gemini saja
 
-```bash
-npm run dev
+Body:
+
+```json
+{
+  "prompt": "tuliskan summary dari catatan ini ...",
+  "type": "summary",
+  "system": "optional instruction"
+}
 ```
-
-## Deploy
-
-```bash
-npm run deploy
-```
-
-Worker entry: `src/index.ts` (tidak butuh dist/main.js).

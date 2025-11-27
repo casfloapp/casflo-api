@@ -1,22 +1,23 @@
 {
-  "name": "casflo-api-worker",
+  "name": "casflo-api-worker-structured",
   "version": "1.0.0",
-  "description": "Casflo API running 100% on Cloudflare Workers + D1",
+  "description": "Casflo API - Cloudflare Worker + D1 + Hybrid AI (Gemini + ChatGPT)",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "echo \"no tests yet\""
+    "test": "echo \"no tests configured yet\""
   },
   "dependencies": {
-    "@prisma/client": "7.0.1",
     "@prisma/adapter-d1": "7.0.1",
+    "@prisma/client": "7.0.1",
     "hono": "^4.6.8",
-    "jose": "^5.9.6"
+    "jose": "^5.9.6",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241022.0",
     "prisma": "7.0.1",
     "typescript": "^5.9.3",
-    "@cloudflare/workers-types": "^4.20241022.0",
     "wrangler": "^4.51.0"
   }
 }

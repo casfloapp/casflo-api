@@ -3,7 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
 [vars]
-JWT_SECRET = "change_me_in_dashboard"
+# these should match what you configured in Cloudflare dashboard
+ACCESS_TOKEN_EXPIRES = "15m"
+REFRESH_TOKEN_EXPIRES_DAYS = 30
+JWT_SECRET = "set_in_dashboard"
+JWT_REFRESH_SECRET = "set_in_dashboard"
+PASSWORD_PEPPER = "set_in_dashboard"
 
 [[d1_databases]]
 binding = "DB"

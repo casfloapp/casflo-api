@@ -17,6 +17,10 @@ model User {
   updatedAt    DateTime       @updatedAt
   transactions Transaction[]
   refreshTokens RefreshToken[]
+  notes        Note[]
+  books        Book[]
+  settings     Setting?
+  auditLogs    AuditLog[]
 }
 
 model RefreshToken {
@@ -47,4 +51,45 @@ model Transaction {
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id])
   category    Category? @relation(fields: [categoryId], references: [id])
+}
+
+model Book {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  author    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  theme     String?  // light / dark
+  language  String?  // id / en
+  aiMode    String?  // hybrid / gemini / gpt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  meta      String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
 }
