@@ -1,6 +1,9 @@
-name = "casflo-api"
-main = "dist/main.js"
+name = "casflo-api-worker"
+main = "src/index.ts"
 compatibility_date = "2024-12-01"
+
+[vars]
+JWT_SECRET = "change_me_in_dashboard"
 
 [[d1_databases]]
 binding = "DB"

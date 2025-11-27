@@ -1,43 +1,63 @@
-# Casflo API (NestJS + Prisma + D1)
+# Casflo API - Cloudflare Worker + D1
 
-## Setup
+API keuangan pribadi (mirip casflo) berjalan 100% di Cloudflare Worker, pakai:
 
-1. Install dependencies
+- Hono (framework HTTP untuk Worker)
+- Cloudflare D1
+- Prisma Client Edge + adapter D1
+- JWT Access + Refresh
+- Endpoint:
+  - /auth/register, /auth/login, /auth/refresh, /auth/logout
+  - /users/me
+  - /categories (CRUD)
+  - /transactions (CRUD)
+  - /reports/summary, /reports/category
+  - /openapi.json (minimal OpenAPI spec)
+
+## Setup Lokal
 
 ```bash
 npm install
-```
-
-2. Set environment
-
-Create `.env`:
-
-```bash
-DATABASE_URL="file:./dev.db" # for local dev, D1 for production
-JWT_SECRET="changeme"
-```
-
-3. Prisma
-
-```bash
 npx prisma generate
-npx prisma migrate dev --name init
 ```
 
-4. Run dev
+Buat file `.env` (hanya untuk prisma generate lokal):
+
+```env
+DATABASE_URL="file:./dev.db"
+```
+
+Lalu:
 
 ```bash
-npm run start:dev
+npx prisma db push   # hanya jika ingin buat DB lokal baru
 ```
 
-Then open `http://localhost:3000/docs` for Swagger.
+## Cloudflare D1
 
-## Deploy to Cloudflare
+- Buat D1 database di Cloudflare Dashboard
+- Catat `database_id` dan `database_name`
+- Update di `wrangler.toml`:
 
-- Configure `wrangler.toml` with your D1 binding.
-- Build:
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "casflo"
+database_id = "YOUR_D1_ID"
+```
+
+Set `JWT_SECRET` di Dashboard (Project → Settings → Variables).
+
+## Dev
 
 ```bash
-npm run build
-npx wrangler deploy
+npm run dev
 ```
+
+## Deploy
+
+```bash
+npm run deploy
+```
+
+Worker entry: `src/index.ts` (tidak butuh dist/main.js).
