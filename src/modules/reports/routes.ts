@@ -52,23 +52,26 @@ reportsRoutes.get('/category', async (c) => {
   const userId = c.get('userId') as string;
   const month = c.req.query('month'); // optional YYYY-MM
 
-  let sql = """SELECT 
-                 COALESCE(c.name, 'Uncategorized') AS category,
-                 SUM(t.amount) AS total
-               FROM transactions t
-               JOIN books b ON t.book_id = b.id
-               LEFT JOIN categories c ON t.category_id = c.id
-               WHERE b.created_by = ?""";
-  const binds: any[] = [userId];
+ let sql = `
+  SELECT 
+    COALESCE(c.name, 'Uncategorized') AS category,
+    SUM(t.amount) AS total
+  FROM transactions t
+  JOIN books b ON t.book_id = b.id
+  LEFT JOIN categories c ON t.category_id = c.id
+  WHERE b.created_by = ?
+`;
 
-  if (month) {
-    sql += " AND strftime('%Y-%m', t.created_at) = ?";
-    binds.push(month);
-  }
+const binds:any[] = [userId];
 
-  sql += " GROUP BY category ORDER BY total DESC";
+if (month) {
+  sql += ` AND strftime('%Y-%m', t.created_at) = ?`;
+  binds.push(month);
+}
 
-  const result = await c.env.DB.prepare(sql).bind(*binds).all<any>();
+sql += ` GROUP BY category ORDER BY total DESC`;
 
-  return c.json(result.results);
+const result = await c.env.DB.prepare(sql).bind(...binds).all<any>();
+return c.json(result.results);
+
 });
