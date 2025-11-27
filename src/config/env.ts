@@ -1,7 +1,7 @@
 import type { Env as CFEnv } from '../types';
 
 export interface EnvConfig {
-  accessTokenExpires: string; // e.g. "15m"
+  accessTokenExpires: string;
   refreshTokenExpiresDays: number;
   jwtSecret: string;
   jwtRefreshSecret: string;
@@ -12,12 +12,12 @@ export interface EnvConfig {
 
 export function getEnv(env: CFEnv): EnvConfig {
   const access = env.ACCESS_TOKEN_EXPIRES || '15m';
-  const refreshDays = Number(env.REFRESH_TOKEN_EXPIRES_DAYS || 30);
+  const rawDays = env.REFRESH_TOKEN_EXPIRES_DAYS;
+  const days = typeof rawDays === 'number' ? rawDays : Number(rawDays || 30);
+
   return {
     accessTokenExpires: access,
-    refreshTokenExpiresDays: Number.isFinite(refreshDays)
-      ? refreshDays
-      : 30,
+    refreshTokenExpiresDays: Number.isFinite(days) ? days : 30,
     jwtSecret: env.JWT_SECRET,
     jwtRefreshSecret: env.JWT_REFRESH_SECRET || env.JWT_SECRET,
     passwordPepper: env.PASSWORD_PEPPER || '',

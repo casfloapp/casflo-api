@@ -18,11 +18,10 @@ export async function createAccessToken(env: Env, userId: string) {
 export async function createRefreshToken(env: Env, userId: string) {
   const cfg = getEnv(env);
   const secret = new TextEncoder().encode(cfg.jwtRefreshSecret);
-  const days = cfg.refreshTokenExpiresDays;
   const jwt = await new SignJWT({ sub: userId, type: 'refresh' })
     .setProtectedHeader({ alg: ALG })
     .setIssuedAt()
-    .setExpirationTime(`${days}d`)
+    .setExpirationTime(`${cfg.refreshTokenExpiresDays}d`)
     .sign(secret);
   return jwt;
 }

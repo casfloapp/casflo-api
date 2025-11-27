@@ -17,7 +17,6 @@ export function validateJson<T>(schema: ZodSchema<T>) {
         400,
       );
     }
-    // attach parsed body
     // @ts-ignore
     c.req.valid = result.data;
     return next();

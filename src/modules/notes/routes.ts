@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import type { Env } from '../../types';
-import { getPrisma } from '../../services/db';
 import { authMiddleware } from '../../middlewares/auth';
 
 export const noteRoutes = new Hono<{ Bindings: Env }>();
@@ -8,44 +7,63 @@ export const noteRoutes = new Hono<{ Bindings: Env }>();
 noteRoutes.use('*', authMiddleware);
 
 noteRoutes.get('/', async (c) => {
-  const prisma = getPrisma(c.env);
-  const userId = c.get('userId') as string;
-  const list = await prisma.note.findMany({
-    where: { userId },
-    orderBy: { updatedAt: 'desc' },
-  });
-  return c.json(list);
+  const bookId = c.req.query('book_id');
+  if (!bookId) return c.json({ error: 'book_id required' }, 400);
+  const result = await c.env.DB.prepare(
+    'SELECT id, book_id, title, content, note_date, created_at, updated_at FROM notes WHERE book_id = ? ORDER BY note_date DESC',
+  )
+    .bind(bookId)
+    .all<any>();
+  return c.json(result.results);
 });
 
 noteRoutes.post('/', async (c) => {
-  const prisma = getPrisma(c.env);
   const userId = c.get('userId') as string;
-  const body = await c.req.json<{ title: string; content: string }>();
-  if (!body.title || !body.content) return c.json({ error: 'title & content required' }, 400);
-  const note = await prisma.note.create({
-    data: { userId, title: body.title, content: body.content },
-  });
-  return c.json(note);
+  const body = await c.req.json<{
+    book_id: string;
+    title: string;
+    content?: string;
+    note_date: string;
+  }>();
+  if (!body.book_id || !body.title || !body.note_date) {
+    return c.json({ error: 'book_id, title, note_date required' }, 400);
+  }
+  const id = crypto.randomUUID();
+  await c.env.DB.prepare(
+    'INSERT INTO notes (id, book_id, title, content, note_date, created_at, created_by) VALUES (?, ?, ?, ?, ?, datetime(\'now\',\'localtime\'), ?)',
+  )
+    .bind(
+      id,
+      body.book_id,
+      body.title,
+      body.content ?? '',
+      body.note_date,
+      userId,
+    )
+    .run();
+  return c.json({ id, ...body });
 });
 
 noteRoutes.patch('/:id', async (c) => {
-  const prisma = getPrisma(c.env);
   const userId = c.get('userId') as string;
   const id = c.req.param('id');
-  const body = await c.req.json<{ title?: string; content?: string }>();
-  const res = await prisma.note.updateMany({
-    where: { id, userId },
-    data: body,
-  });
-  return c.json({ updated: res.count });
+  const body = await c.req.json<{ title?: string; content?: string; note_date?: string }>();
+  await c.env.DB.prepare(
+    'UPDATE notes SET title = COALESCE(?, title), content = COALESCE(?, content), note_date = COALESCE(?, note_date), updated_at = datetime(\'now\',\'localtime\'), updated_by = ? WHERE id = ?',
+  )
+    .bind(
+      body.title ?? null,
+      body.content ?? null,
+      body.note_date ?? null,
+      userId,
+      id,
+    )
+    .run();
+  return c.json({ updated: true });
 });
 
 noteRoutes.delete('/:id', async (c) => {
-  const prisma = getPrisma(c.env);
-  const userId = c.get('userId') as string;
   const id = c.req.param('id');
-  const res = await prisma.note.deleteMany({
-    where: { id, userId },
-  });
-  return c.json({ deleted: res.count });
+  await c.env.DB.prepare('DELETE FROM notes WHERE id = ?').bind(id).run();
+  return c.json({ deleted: true });
 });

@@ -1,8 +1,6 @@
 import type { Context, Next } from 'hono';
 
 type BucketKey = string;
-
-// simple ephemeral bucket; resets when worker instance recycled
 const buckets = new Map<BucketKey, { tokens: number; resetAt: number }>();
 
 export interface RateLimitOptions {

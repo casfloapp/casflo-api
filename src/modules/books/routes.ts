@@ -1,51 +1,33 @@
 import { Hono } from 'hono';
 import type { Env } from '../../types';
-import { getPrisma } from '../../services/db';
 import { authMiddleware } from '../../middlewares/auth';
 
 export const bookRoutes = new Hono<{ Bindings: Env }>();
 
 bookRoutes.use('*', authMiddleware);
 
+// list books by current user
 bookRoutes.get('/', async (c) => {
-  const prisma = getPrisma(c.env);
   const userId = c.get('userId') as string;
-  const list = await prisma.book.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-  });
-  return c.json(list);
+  const result = await c.env.DB.prepare(
+    'SELECT id, name, module_type, created_at, icon FROM books WHERE created_by = ? ORDER BY created_at DESC',
+  )
+    .bind(userId)
+    .all<any>();
+  return c.json(result.results);
 });
 
 bookRoutes.post('/', async (c) => {
-  const prisma = getPrisma(c.env);
   const userId = c.get('userId') as string;
-  const body = await c.req.json<{ title: string; author?: string; notes?: string }>();
-  if (!body.title) return c.json({ error: 'title required' }, 400);
-  const book = await prisma.book.create({
-    data: { userId, title: body.title, author: body.author ?? null, notes: body.notes ?? null },
-  });
-  return c.json(book);
-});
-
-bookRoutes.patch('/:id', async (c) => {
-  const prisma = getPrisma(c.env);
-  const userId = c.get('userId') as string;
-  const id = c.req.param('id');
-  const body = await c.req.json<{ title?: string; author?: string; notes?: string }>();
-  const res = await prisma.book.updateMany({
-    where: { id, userId },
-    data: body,
-  });
-  return c.json({ updated: res.count });
-});
-
-bookRoutes.delete('/:id', async (c) => {
-  const prisma = getPrisma(c.env);
-  const userId = c.get('userId') as string;
-  const id = c.req.param('id');
-  const res = await prisma.book.deleteMany({
-    where: { id, userId },
-  });
-  return c.json({ deleted: res.count });
+  const body = await c.req.json<{ name: string; module_type: string; icon?: string }>();
+  if (!body.name || !body.module_type) {
+    return c.json({ error: 'name & module_type required' }, 400);
+  }
+  const id = crypto.randomUUID();
+  await c.env.DB.prepare(
+    'INSERT INTO books (id, name, module_type, created_at, created_by, icon) VALUES (?, ?, ?, datetime(\'now\',\'localtime\'), ?, COALESCE(?, \"📚\"))',
+  )
+    .bind(id, body.name, body.module_type, userId, body.icon ?? '📚')
+    .run();
+  return c.json({ id, name: body.name, module_type: body.module_type });
 });
