@@ -1,47 +1,32 @@
-# Casflo API Worker (Full, No Prisma)
+# Casflo Worker API (Mode D - Gemini + ChatGPT Hybrid)
 
-Cloudflare Worker + D1 (native SQL) + Hybrid AI (Gemini + ChatGPT)
+Cloudflare Worker backend for Casflo-style app:
+- Auth (JWT access + refresh)
+- Books (instead of wallets)
+- Categories
+- Transactions + splits
+- Receipt scan endpoint with hybrid AI:
+  - Google Gemini via REST API (no @google/genai SDK)
+  - OpenAI (ChatGPT Vision) via REST API
 
-## Fitur
+## Env / Secrets
 
-- Auth: register, login, refresh, logout (JWT stateless)
-- Books: buku keuangan / modul
-- Categories: kategori per buku
-- Transactions: pemasukan / pengeluaran
-- Notes: catatan per buku
-- Settings: `book_settings` per buku
-- Summary:
-  - `/summary/finance` → income/expense/balance per book
-  - `/summary/ai/hybrid` → Gemini+GPT otomatis
-  - `/summary/ai/chatgpt` → hanya OpenAI
-  - `/summary/ai/gemini` → hanya Gemini
+Set via `npx wrangler secret put` atau via dashboard:
 
-## Struktur
+- JWT_ACCESS_SECRET
+- JWT_REFRESH_SECRET
+- GEMINI_API_KEY
+- OPENAI_API_KEY
 
-Lihat folder `src/` sesuai yang kamu minta.
+## D1 Database
 
-## ENV di Cloudflare
+Bind: `DB`  
+Apply: `migrations/d1-init.sql`
 
-Wajib:
-
-- `ACCESS_TOKEN_EXPIRES` (misal `15m`)
-- `REFRESH_TOKEN_EXPIRES_DAYS` (misal `30`)
-- `JWT_SECRET`
-- `JWT_REFRESH_SECRET`
-- `PASSWORD_PEPPER`
-
-Opsional:
-
-- `OPENAI_API_KEY`
-- `GEMINI_API_KEY`
-
-## Deploy
+## Run
 
 ```bash
-npm install
+bun install   # atau npm install
+npx wrangler dev
 npx wrangler deploy
 ```
-
-Worker akan tersedia di:
-
-- `https://api.casflo.id/` (sesuai routes di wrangler.toml)

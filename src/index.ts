@@ -1,11 +1,29 @@
-import { Hono } from "hono";
-import type { Env } from "./types";
-import { routes } from "./routes";
+import { Hono } from 'hono';
+import auth from './routes/auth';
+import books from './routes/books';
+import categories from './routes/categories';
+import transactions from './routes/transactions';
+import scan from './routes/scan';
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono();
 
-app.route("/v1", routes);  // ⬅ cukup ini, pastikan `routes` Hono instance
+app.use('*', async (c, next) => {
+  c.header('Access-Control-Allow-Origin', c.req.headers.get('Origin') || '*');
+  c.header('Access-Control-Allow-Credentials', 'true');
+  c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (c.req.method === 'OPTIONS') return c.text('');
+  await next();
+});
 
-app.get("/", (c) => c.json({ status: "OK", name: "Casflo API Worker v1" }));
+app.get('/health', (c) => c.text('ok'));
 
-export default app;
+app.route('/api/auth', auth);
+app.route('/api/books', books);
+app.route('/api/categories', categories);
+app.route('/api/transactions', transactions);
+app.route('/api/scan', scan);
+
+export default {
+  fetch: app.fetch,
+};

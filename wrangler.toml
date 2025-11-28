@@ -1,22 +1,12 @@
 name = "casflo-api"
 main = "src/index.ts"
-compatibility_date = "2025-11-25"
-
-routes = [
-  { pattern = "api.casflo.id", zone_name = "casflo.id", custom_domain = true }
-]
-
-# Tidak pakai wildcard.
-# Prefix /v1 ditangani di index.ts, bukan di route Cloudflare.
-
-[vars]
-ACCESS_TOKEN_EXPIRES = "15m"
-REFRESH_TOKEN_EXPIRES_DAYS = 30
-JWT_SECRET = "set_in_dashboard"
-JWT_REFRESH_SECRET = "set_in_dashboard"
-PASSWORD_PEPPER = "set_in_dashboard"
+compatibility_date = "2025-11-26"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "casflo"
-database_id = "fb305b83-a406-4454-a25c-c35c0482ca12"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+ACCESS_TOKEN_EXPIRES = "15m"
+REFRESH_TOKEN_EXPIRES_DAYS = "30"
