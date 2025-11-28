@@ -97,9 +97,12 @@ authRoutes.post('/login', async (c) => {
     }
 
     const user = await q.findUserByEmail(c.env.DB, email);
-    if (!user || !user.hashed_password) {
-        return c.json({ success:false, error:{ message:'Invalid credentials' }},401);
+    const hash = user.hashed_password || user.password_hash;
+
+    if (!user || !hash) {
+    return c.json({ success:false, error:{ message:"Invalid credentials"}},401);
     }
+
 
     if (user.is_email_verified === 0) {
         return c.json({ success:false, error:{ message:'Please verify your email before logging in' }},403);
