@@ -4,6 +4,7 @@ import books from './routes/books';
 import categories from './routes/categories';
 import transactions from './routes/transactions';
 import scan from './routes/scan';
+import { errorHandler } from "./middleware/error-handler";
 
 const app = new Hono();
 

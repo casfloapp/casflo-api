@@ -8,14 +8,15 @@
     "deploy": "wrangler publish"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "hono": "^4.10.7",
     "jose": "^4.15.9",
-    "zod": "^3.25.76",
     "uuid": "^9.0.1",
-    "bcryptjs": "^2.4.3"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "wrangler": "^4.51.0",
-    "typescript": "^5.9.3"
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.51.0"
   }
 }
