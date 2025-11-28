@@ -20,12 +20,8 @@ reportsRoutes.get('/summary', async (c) => {
 
   // FIXED — gunakan backtick untuk SQL multiline
   const rows = await c.env.DB.prepare(
-    `SELECT t.type as type, t.amount as amount
-     FROM transactions t
-     JOIN books b ON t.book_id = b.id
-     WHERE b.created_by = ? 
-       AND strftime('%Y-%m', t.created_at) = ?`
-  )
+    `SELECT t.type as type, t.amount as amount FROM transactions t JOIN books b ON t.book_id = b.id WHERE b.created_by = ? 
+       AND strftime('%Y-%m', t.created_at) = ?`)
   .bind(userId, month)
   .all<{ type: string; amount: number }>();
 
