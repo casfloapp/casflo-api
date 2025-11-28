@@ -10,3 +10,4 @@ database_id = "fb305b83-a406-4454-a25c-c35c0482ca12"
 [vars]
 ACCESS_TOKEN_EXPIRES = "15m"
 REFRESH_TOKEN_EXPIRES_DAYS = "30"
+
