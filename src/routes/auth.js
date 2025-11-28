@@ -81,16 +81,44 @@ authRoutes.post('/resend-verification', async (c) => {
 
 
 authRoutes.post('/login', async (c) => {
-    const { email, password } = await c.req.json();
+    let body;
+
+    try {
+        body = await c.req.json();  // pastikan JSON valid
+    } catch (err) {
+        return c.json({ success:false, error:{ message:"Invalid JSON format" }},400);
+    }
+
+    const { email, password } = body || {};
+
+    // VALIDASI INPUT
+    if (!email || !password) {
+        return c.json({ success:false, error:{message:"Email & password are required"}},400);
+    }
+
     const user = await q.findUserByEmail(c.env.DB, email);
-    if (!user || !user.hashed_password) { return c.json({ success: false, error: { message: 'Invalid credentials' } }, 401); }
-    if (user.is_email_verified === 0) { return c.json({ success: false, error: { message: 'Please verify your email before logging in' } }, 403); }
+    if (!user || !user.hashed_password) {
+        return c.json({ success:false, error:{ message:'Invalid credentials' }},401);
+    }
+
+    if (user.is_email_verified === 0) {
+        return c.json({ success:false, error:{ message:'Please verify your email before logging in' }},403);
+    }
+
     const isMatch = await bcrypt.compare(password, user.hashed_password);
-    if (!isMatch) { return c.json({ success: false, error: { message: 'Invalid credentials' } }, 401); }
+    if (!isMatch) {
+        return c.json({ success:false, error:{ message:'Invalid credentials' }},401);
+    }
+
     const sessionToken = await createSessionToken(c, user.id);
     const { hashed_password, ...userData } = user;
-    return c.json({ success: true, data: { sessionToken, user: userData } });
+
+    return c.json({
+        success:true,
+        data: { sessionToken, user: userData }
+    });
 });
+
 
 
 // --- ALUR OTENTIKASI GOOGLE ---
