@@ -1,15 +1,11 @@
-import { Hono } from 'hono';
-import type { Env } from './types';
-import { registerRoutes } from './routes';
+import { Hono } from "hono";
+import type { Env } from "./types";
+import { routes } from "./routes";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Prefix API /v1
-app.route('/v1', (r) => {
-  registerRoutes(r); // ⬅ Jangan return — hanya inject route
-});
+app.route("/v1", routes);  // ⬅ cukup ini, pastikan `routes` Hono instance
 
-// Root Check
-app.get('/', (c) => c.json({ status: 'OK', service: 'Casflo API Worker v1' }));
+app.get("/", (c) => c.json({ status: "OK", name: "Casflo API Worker v1" }));
 
 export default app;
