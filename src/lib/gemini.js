@@ -116,10 +116,10 @@ async function callGeminiAPI(base64Image, apiKey, userCategories = []) {
  */
 export async function processScanRequest(c, env) {
     const body = await c.req.json();
-    const { image, book_id } = body;
+    const { image, wallet_id } = body;
 
-    if (!image || !book_id) {
-        throw new Error('Data gambar dan book_id diperlukan');
+    if (!image || !wallet_id) {
+        throw new Error('Data gambar dan wallet_id diperlukan');
     }
     
     if (!env.GEMINI_API_KEY) {
@@ -127,9 +127,9 @@ export async function processScanRequest(c, env) {
     }
 
     const categoriesStmt = env.DB.prepare(
-        "SELECT id, name FROM categories WHERE book_id = ? AND type = 'EXPENSE'"
+        "SELECT id, name FROM categories WHERE wallet_id = ? AND type = 'EXPENSE'"
     );
-    const { results: userCategories } = await categoriesStmt.bind(book_id).all();
+    const { results: userCategories } = await categoriesStmt.bind(wallet_id).all();
 
     const scanResult = await callGeminiAPI(image, env.GEMINI_API_KEY, userCategories);
 
