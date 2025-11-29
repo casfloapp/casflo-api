@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import authRoutes from './routes/auth.js';
-import walletRoutes from './routes/wallets.js';
+import bookRoutes from './routes/books.js';
 import { protect } from './middleware/auth.js'; // [BARU] Impor middleware 'protect'
 import { processScanRequest } from './lib/gemini.js'; // [BARU] Impor fungsi AI kita
 
@@ -29,7 +29,7 @@ app.get('/', (c) => {
 
 // Mendaftarkan grup rute
 app.route('/auth', authRoutes);
-app.route('/wallets', walletRoutes);
+app.route('/books', bookRoutes);
 
 // --- [BLOK BARU UNTUK SCAN STRUK] ---
 // Endpoint ini akan berada di /api/v1/scan

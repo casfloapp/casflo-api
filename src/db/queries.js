@@ -93,83 +93,83 @@ export const deleteVerificationCode = async (db, email) => {
   return await db.prepare('DELETE FROM verification_codes WHERE email = ?').bind(email).run();
 };
 
-// --- [DIPERTAHANKAN & DIUBAH] Wallet & Member Queries ---
-export const findWalletsByUserId = async (db, userId) => {
-  const stmt = db.prepare('SELECT w.id, w.name, w.icon, wm.role FROM wallets w JOIN wallet_members wm ON w.id = wm.wallet_id WHERE wm.user_id = ?');
+// --- [DIPERTAHANKAN & DIUBAH] Book & Member Queries ---
+export const findBooksByUserId = async (db, userId) => {
+  const stmt = db.prepare('SELECT w.id, w.name, w.icon, wm.role FROM books w JOIN book_members wm ON w.id = wm.book_id WHERE wm.user_id = ?');
   return (await stmt.bind(userId).all()).results;
 };
-export const findWalletById = async (db, walletId) => {
-  return await db.prepare('SELECT * FROM wallets WHERE id = ?').bind(walletId).first();
+export const findBookById = async (db, bookId) => {
+  return await db.prepare('SELECT * FROM books WHERE id = ?').bind(bookId).first();
 };
-export const createWallet = (db, name, moduleType, userId, icon) => { // 1. Tambah 'icon'
-    const newWalletId = nanoid();
+export const createBook = (db, name, moduleType, userId, icon) => { // 1. Tambah 'icon'
+    const newBookId = nanoid();
     return db.prepare(
-        'INSERT INTO wallets (id, name, module_type, created_by, icon) VALUES (?, ?, ?, ?, ?)' // 2. Tambah 'icon' di query
-    ).bind(newWalletId, name, moduleType, userId, icon || '📚').run(); // 3. Bind 'icon' (beri default '📚')
+        'INSERT INTO books (id, name, module_type, created_by, icon) VALUES (?, ?, ?, ?, ?)' // 2. Tambah 'icon' di query
+    ).bind(newBookId, name, moduleType, userId, icon || '📚').run(); // 3. Bind 'icon' (beri default '📚')
 };
-export const createWalletWithMember = async (db, walletData, userId) => {
-  const newWalletId = `w-${crypto.randomUUID()}`;
+export const createBookWithMember = async (db, bookData, userId) => {
+  const newBookId = `w-${crypto.randomUUID()}`;
   const defaultAccountId = `acc-${crypto.randomUUID()}`;
   const batch = [
-      db.prepare('INSERT INTO wallets (id, name, module_type, created_by, icon) VALUES (?, ?, ?, ?, ?)')
-        .bind(newWalletId, walletData.name, walletData.moduleType, userId, walletData.icon || '📚'),
+      db.prepare('INSERT INTO books (id, name, module_type, created_by, icon) VALUES (?, ?, ?, ?, ?)')
+        .bind(newBookId, bookData.name, bookData.moduleType, userId, bookData.icon || '📚'),
       
       // V V V [PERBAIKAN WAJIB ADA DI SINI] V V V
-      db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role) VALUES (?, ?, ?)').bind(newWalletId, userId, 'OWNER'),
+      db.prepare('INSERT INTO book_members (book_id, user_id, role) VALUES (?, ?, ?)').bind(newBookId, userId, 'OWNER'),
       // ^ ^ ^ [AKHIR DARI PERBAIKAN] ^ ^ ^
       
-      db.prepare("INSERT INTO accounts (id, wallet_id, name, type, balance) VALUES (?, ?, 'Kas Tunai', 'ASSET', 0)").bind(defaultAccountId, newWalletId)
+      db.prepare("INSERT INTO accounts (id, book_id, name, type, balance) VALUES (?, ?, 'Kas Tunai', 'ASSET', 0)").bind(defaultAccountId, newBookId)
   ];
   // [BARU] Loop melalui kategori default dan tambahkan ke batch
   DEFAULT_CATEGORIES.forEach(cat => {
     const newCatId = `ca-${crypto.randomUUID()}`;
     batch.push(
       // [DIUBAH] Tambahkan 'icon' dan 'cat.icon'
-      db.prepare('INSERT INTO categories (id, wallet_id, name, type, icon) VALUES (?, ?, ?, ?, ?)')
-        .bind(newCatId, newWalletId, cat.name, cat.type, cat.icon)
+      db.prepare('INSERT INTO categories (id, book_id, name, type, icon) VALUES (?, ?, ?, ?, ?)')
+        .bind(newCatId, newBookId, cat.name, cat.type, cat.icon)
     );
   });
   // [AKHIR BLOK BARU]
 
   await db.batch(batch);
-  return { id: newWalletId, ...walletData };
+  return { id: newBookId, ...bookData };
 };
-export const updateWallet = async (db, walletId, data) => {
+export const updateBook = async (db, bookId, data) => {
   // [PERBAIKAN] Tambahkan 'icon = ?'
-  await db.prepare('UPDATE wallets SET name = ?, icon = ?, updated_at = datetime("now","localtime"), updated_by = ? WHERE id = ?')
+  await db.prepare('UPDATE books SET name = ?, icon = ?, updated_at = datetime("now","localtime"), updated_by = ? WHERE id = ?')
     // [PERBAIKAN] Tambahkan 'data.icon' ke bind
-    .bind(data.name, data.icon || '📚', data.updated_by, walletId).run();
-  return { id: walletId, name: data.name, icon: data.icon }; // Kembalikan data icon juga
+    .bind(data.name, data.icon || '📚', data.updated_by, bookId).run();
+  return { id: bookId, name: data.name, icon: data.icon }; // Kembalikan data icon juga
 };
-export const deleteWallet = async (db, walletId) => {
-  return await db.prepare('DELETE FROM wallets WHERE id = ?').bind(walletId).run();
+export const deleteBook = async (db, bookId) => {
+  return await db.prepare('DELETE FROM books WHERE id = ?').bind(bookId).run();
 };
-export const findMember = async (db, walletId, userId) => {
-  return await db.prepare('SELECT * FROM wallet_members WHERE wallet_id = ? AND user_id = ?').bind(walletId, userId).first();
+export const findMember = async (db, bookId, userId) => {
+  return await db.prepare('SELECT * FROM book_members WHERE book_id = ? AND user_id = ?').bind(bookId, userId).first();
 };
-export const findMembersByWalletId = async (db, walletId) => {
+export const findMembersByBookId = async (db, bookId) => {
   // [PERBAIKAN] Tambahkan "wm.label" di sini
-  const stmt = db.prepare('SELECT u.id, u.full_name, u.email, u.avatar_url, wm.role, wm.label FROM users u JOIN wallet_members wm ON u.id = wm.user_id WHERE wm.wallet_id = ?');
-  return (await stmt.bind(walletId).all()).results;
+  const stmt = db.prepare('SELECT u.id, u.full_name, u.email, u.avatar_url, wm.role, wm.label FROM users u JOIN book_members wm ON u.id = wm.user_id WHERE wm.book_id = ?');
+  return (await stmt.bind(bookId).all()).results;
 };
-export const addWalletMember = async (db, walletId, userId, role, label) => { // <-- [PERBAIKAN] Tambah 'label'
+export const addBookMember = async (db, bookId, userId, role, label) => { // <-- [PERBAIKAN] Tambah 'label'
   // [PERBAIKAN] Tambahkan 'label' dan '?'
-  return await db.prepare('INSERT INTO wallet_members (wallet_id, user_id, role, label) VALUES (?, ?, ?, ?)')
-    .bind(walletId, userId, role, label || null).run(); // Simpan 'null' jika label kosong
+  return await db.prepare('INSERT INTO book_members (book_id, user_id, role, label) VALUES (?, ?, ?, ?)')
+    .bind(bookId, userId, role, label || null).run(); // Simpan 'null' jika label kosong
 };
-export const removeWalletMember = async (db, walletId, userId) => {
-  return await db.prepare('DELETE FROM wallet_members WHERE wallet_id = ? AND user_id = ?').bind(walletId, userId).run();
+export const removeBookMember = async (db, bookId, userId) => {
+  return await db.prepare('DELETE FROM book_members WHERE book_id = ? AND user_id = ?').bind(bookId, userId).run();
 };
 
 // --- [BARU] CRUD untuk Accounts ---
-export const findAccountsByWalletId = async (db, walletId) => {
-  return (await db.prepare('SELECT * FROM accounts WHERE wallet_id = ? AND is_archived = 0 ORDER BY type, name ASC').bind(walletId).all()).results;
+export const findAccountsByBookId = async (db, bookId) => {
+  return (await db.prepare('SELECT * FROM accounts WHERE book_id = ? AND is_archived = 0 ORDER BY type, name ASC').bind(bookId).all()).results;
 };
 export const createAccount = async (db, data) => {
   const newId = `acc-${crypto.randomUUID()}`;
   const balanceInCents = Math.round((data.balance || 0) * 100);
-  await db.prepare('INSERT INTO accounts (id, wallet_id, name, type, balance) VALUES (?, ?, ?, ?, ?)')
-    .bind(newId, data.wallet_id, data.name, data.type, balanceInCents).run();
+  await db.prepare('INSERT INTO accounts (id, book_id, name, type, balance) VALUES (?, ?, ?, ?, ?)')
+    .bind(newId, data.book_id, data.name, data.type, balanceInCents).run();
   return { id: newId, ...data };
 };
 export const updateAccount = async (db, accountId, data) => {
@@ -187,14 +187,14 @@ export const deleteAccount = async (db, accountId) => {
 };
 
 // --- [DIPERTAHANKAN] CRUD untuk Categories & Contacts ---
-export const findCategoriesByWalletId = async (db, walletId) => {
-  return (await db.prepare('SELECT * FROM categories WHERE wallet_id = ? ORDER BY name ASC').bind(walletId).all()).results;
+export const findCategoriesByBookId = async (db, bookId) => {
+  return (await db.prepare('SELECT * FROM categories WHERE book_id = ? ORDER BY name ASC').bind(bookId).all()).results;
 };
 export const createCategory = async (db, data) => {
   const newId = `ca-${crypto.randomUUID()}`;
   // [DIUBAH] Tambahkan 'icon' dan 'data.icon'
-  await db.prepare('INSERT INTO categories (id, wallet_id, name, type, icon) VALUES (?, ?, ?, ?, ?)')
-    .bind(newId, data.wallet_id, data.name, data.type, data.icon || null).run();
+  await db.prepare('INSERT INTO categories (id, book_id, name, type, icon) VALUES (?, ?, ?, ?, ?)')
+    .bind(newId, data.book_id, data.name, data.type, data.icon || null).run();
   return { id: newId, ...data };
 };
 export const updateCategory = async (db, categoryId, data) => {
@@ -206,13 +206,13 @@ export const updateCategory = async (db, categoryId, data) => {
 export const deleteCategory = async (db, categoryId) => {
   return await db.prepare('DELETE FROM categories WHERE id = ?').bind(categoryId).run();
 };
-export const findContactsByWalletId = async (db, walletId) => {
-    return (await db.prepare('SELECT * FROM contacts WHERE wallet_id = ? ORDER BY name ASC').bind(walletId).all()).results;
+export const findContactsByBookId = async (db, bookId) => {
+    return (await db.prepare('SELECT * FROM contacts WHERE book_id = ? ORDER BY name ASC').bind(bookId).all()).results;
 };
 export const createContact = async (db, data, userId) => {
     const newId = `co-${crypto.randomUUID()}`;
-    await db.prepare('INSERT INTO contacts (id, wallet_id, name, phone, description, created_by) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(newId, data.wallet_id, data.name, data.phone, data.description, userId).run();
+    await db.prepare('INSERT INTO contacts (id, book_id, name, phone, description, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(newId, data.book_id, data.name, data.phone, data.description, userId).run();
     return { id: newId, ...data };
 };
 export const updateContact = async (db, contactId, data) => {
@@ -227,7 +227,7 @@ export const deleteContact = async (db, contactId) => {
 // --- [DIUBAH TOTAL] Logika untuk Transactions ---
 // FUNGSI BARU (PERBAIKAN):
 // FUNGSI BARU YANG BENAR:
-export const findTransactionsByWalletId = async (db, walletId, filters = {}) => {
+export const findTransactionsByBookId = async (db, bookId, filters = {}) => {
   let baseQuery = `
     SELECT 
       t.id,
@@ -247,8 +247,8 @@ export const findTransactionsByWalletId = async (db, walletId, filters = {}) => 
     LEFT JOIN accounts a ON s.account_id = a.id
   `;
 
-  const whereClauses = ['t.wallet_id = ?', 's.category_id IS NOT NULL']; 
-  const params = [walletId];
+  const whereClauses = ['t.book_id = ?', 's.category_id IS NOT NULL']; 
+  const params = [bookId];
 
   if (filters.startDate && filters.endDate) {
     whereClauses.push('t.transaction_date BETWEEN ? AND ?');
@@ -274,8 +274,8 @@ export const createTransaction = async (db, data, userId) => {
   const newTxId = `tx-${crypto.randomUUID()}`;
   
   const batch = [
-    db.prepare('INSERT INTO transactions (id, wallet_id, contact_id, description, transaction_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(newTxId, data.wallet_id, data.contact_id || null, data.description, data.transaction_date, userId)
+    db.prepare('INSERT INTO transactions (id, book_id, contact_id, description, transaction_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(newTxId, data.book_id, data.contact_id || null, data.description, data.transaction_date, userId)
   ];
 
   const sqlInsertSplit = `
@@ -420,10 +420,10 @@ export const updateTransaction = async (db, txId, data, userId) => {
   return { id: txId, ...data };
 };
 
-// --- [DIUBAH TOTAL] Logika untuk Wallet Summary ---
-export const getWalletSummary = async (db, walletId, filters = {}) => { // <-- [PERBAIKAN] Tambah parameter filters
-    const assetsResult = await db.prepare("SELECT SUM(balance) as total FROM accounts WHERE wallet_id = ? AND type = 'ASSET' AND is_archived = 0").bind(walletId).first('total');
-    const liabilitiesResult = await db.prepare("SELECT SUM(balance) as total FROM accounts WHERE wallet_id = ? AND type = 'LIABILITY' AND is_archived = 0").bind(walletId).first('total');
+// --- [DIUBAH TOTAL] Logika untuk Book Summary ---
+export const getBookSummary = async (db, bookId, filters = {}) => { // <-- [PERBAIKAN] Tambah parameter filters
+    const assetsResult = await db.prepare("SELECT SUM(balance) as total FROM accounts WHERE book_id = ? AND type = 'ASSET' AND is_archived = 0").bind(bookId).first('total');
+    const liabilitiesResult = await db.prepare("SELECT SUM(balance) as total FROM accounts WHERE book_id = ? AND type = 'LIABILITY' AND is_archived = 0").bind(bookId).first('total');
     
     // [PERBAIKAN] Gunakan tanggal dari filter, ATAU default ke bulan ini jika tidak ada
     let startDate, endDate;
@@ -438,35 +438,35 @@ export const getWalletSummary = async (db, walletId, filters = {}) => { // <-- [
     }
     // [AKHIR PERBAIKAN]
 
-    const incomeQuery = `SELECT ABS(SUM(s.amount)) as total FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.wallet_id = ? AND c.type = 'INCOME' AND t.transaction_date BETWEEN ? AND ?`;
-    const expenseQuery = `SELECT ABS(SUM(s.amount)) as total FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.wallet_id = ? AND c.type = 'EXPENSE' AND t.transaction_date BETWEEN ? AND ?`;
-    const monthlyIncomeResult = await db.prepare(incomeQuery).bind(walletId, startDate, endDate).first('total');
-    const monthlyExpenseResult = await db.prepare(expenseQuery).bind(walletId, startDate, endDate).first('total');
+    const incomeQuery = `SELECT ABS(SUM(s.amount)) as total FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.book_id = ? AND c.type = 'INCOME' AND t.transaction_date BETWEEN ? AND ?`;
+    const expenseQuery = `SELECT ABS(SUM(s.amount)) as total FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.book_id = ? AND c.type = 'EXPENSE' AND t.transaction_date BETWEEN ? AND ?`;
+    const monthlyIncomeResult = await db.prepare(incomeQuery).bind(bookId, startDate, endDate).first('total');
+    const monthlyExpenseResult = await db.prepare(expenseQuery).bind(bookId, startDate, endDate).first('total');
     return { assets: assetsResult || 0, liabilities: liabilitiesResult || 0, net_worth: (assetsResult || 0) - (liabilitiesResult || 0), monthly_income: monthlyIncomeResult || 0, monthly_expense: monthlyExpenseResult || 0 };
 };
 
 // --- [BARU] Query untuk Laporan, Anggaran, Pengaturan, dll ---
-export const getExpenseReportByCategory = async (db, walletId, filters = {}) => {
-  let query = `SELECT c.name as category_name, c.id as category_id, SUM(s.amount) as total_amount FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.wallet_id = ? AND c.type = 'EXPENSE'`;
-  const params = [walletId];
+export const getExpenseReportByCategory = async (db, bookId, filters = {}) => {
+  let query = `SELECT c.name as category_name, c.id as category_id, SUM(s.amount) as total_amount FROM transaction_splits s JOIN categories c ON s.category_id = c.id JOIN transactions t ON s.transaction_id = t.id WHERE t.book_id = ? AND c.type = 'EXPENSE'`;
+  const params = [bookId];
   if (filters.startDate && filters.endDate) { query += ' AND t.transaction_date BETWEEN ? AND ?'; params.push(filters.startDate, filters.endDate); }
   query += ' GROUP BY c.id, c.name ORDER BY total_amount DESC';
   return (await db.prepare(query).bind(...params).all()).results;
 };
 
-export const findBudgetsByWalletId = async (db, walletId) => {
+export const findBudgetsByBookId = async (db, bookId) => {
   const query = `
     SELECT b.id, b.name, b.amount, b.period, b.start_date,
       (SELECT GROUP_CONCAT(c.name) FROM budget_categories bc JOIN categories c ON bc.category_id = c.id WHERE bc.budget_id = b.id) as categories
-    FROM budgets b WHERE b.wallet_id = ?`;
-  return (await db.prepare(query).bind(walletId).all()).results;
+    FROM budgets b WHERE b.book_id = ?`;
+  return (await db.prepare(query).bind(bookId).all()).results;
 };
 export const createBudget = async (db, data) => {
   const newBudgetId = `b-${crypto.randomUUID()}`;
   const amountInCents = Math.round(data.amount * 100);
   const batch = [
-    db.prepare('INSERT INTO budgets (id, wallet_id, name, amount, period, start_date) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(newBudgetId, data.wallet_id, data.name, amountInCents, data.period, data.start_date)
+    db.prepare('INSERT INTO budgets (id, book_id, name, amount, period, start_date) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(newBudgetId, data.book_id, data.name, amountInCents, data.period, data.start_date)
   ];
   if (data.categoryIds && data.categoryIds.length > 0) {
     for (const categoryId of data.categoryIds) {
@@ -480,25 +480,25 @@ export const deleteBudget = async (db, budgetId) => {
   return await db.prepare('DELETE FROM budgets WHERE id = ?').bind(budgetId).run();
 };
 
-export const findRecurringTransactionsByWalletId = async (db, walletId) => {
-    return (await db.prepare('SELECT * FROM recurring_transactions WHERE wallet_id = ? AND is_active = 1').bind(walletId).all()).results;
+export const findRecurringTransactionsByBookId = async (db, bookId) => {
+    return (await db.prepare('SELECT * FROM recurring_transactions WHERE book_id = ? AND is_active = 1').bind(bookId).all()).results;
 };
 export const createRecurringTransaction = async (db, data) => {
     const newId = `rt-${crypto.randomUUID()}`;
     const amountInCents = Math.round(data.amount * 100);
-    await db.prepare(`INSERT INTO recurring_transactions (id, wallet_id, description, amount, type, frequency, start_date, next_due_date, category_id, from_account_id, to_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(newId, data.wallet_id, data.description, amountInCents, data.type, data.frequency, data.start_date, data.next_due_date, data.category_id, data.from_account_id, data.to_account_id).run();
+    await db.prepare(`INSERT INTO recurring_transactions (id, book_id, description, amount, type, frequency, start_date, next_due_date, category_id, from_account_id, to_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(newId, data.book_id, data.description, amountInCents, data.type, data.frequency, data.start_date, data.next_due_date, data.category_id, data.from_account_id, data.to_account_id).run();
     return { id: newId, ...data };
 };
 export const deleteRecurringTransaction = async (db, rtId) => {
     return await db.prepare('DELETE FROM recurring_transactions WHERE id = ?').bind(rtId).run();
 };
 
-export const findSettingsByWalletId = async (db, walletId) => {
-    let settings = await db.prepare('SELECT * FROM wallet_settings WHERE wallet_id = ?').bind(walletId).first();
+export const findSettingsByBookId = async (db, bookId) => {
+    let settings = await db.prepare('SELECT * FROM book_settings WHERE book_id = ?').bind(bookId).first();
     // Jika belum ada setting, kembalikan nilai default
     if (!settings) {
         return { 
-            wallet_id: walletId, 
+            book_id: bookId, 
             start_of_month: 1, 
             theme: 'SYSTEM', 
             language: 'id-ID',
@@ -511,15 +511,15 @@ export const findSettingsByWalletId = async (db, walletId) => {
     }
     return settings;
 };
-export const updateSettings = async (db, walletId, data) => {
+export const updateSettings = async (db, bookId, data) => {
     // Ambil pengaturan saat ini untuk mengisi nilai yang mungkin tidak dikirim dari frontend
-    const currentSettings = await findSettingsByWalletId(db, walletId);
+    const currentSettings = await findSettingsByBookId(db, bookId);
     const newSettings = { ...currentSettings, ...data };
 
     await db.prepare(`
-        INSERT INTO wallet_settings (wallet_id, start_of_month, theme, language, button_position, calculator_layout, sound_effects_enabled, haptic_feedback_enabled) 
+        INSERT INTO book_settings (book_id, start_of_month, theme, language, button_position, calculator_layout, sound_effects_enabled, haptic_feedback_enabled) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(wallet_id) DO UPDATE SET
+        ON CONFLICT(book_id) DO UPDATE SET
         start_of_month = excluded.start_of_month,
         theme = excluded.theme,
         language = excluded.language,
@@ -528,7 +528,7 @@ export const updateSettings = async (db, walletId, data) => {
         sound_effects_enabled = excluded.sound_effects_enabled,
         haptic_feedback_enabled = excluded.haptic_feedback_enabled
     `).bind(
-        walletId, 
+        bookId, 
         newSettings.start_of_month, 
         newSettings.theme, 
         newSettings.language,
@@ -538,17 +538,17 @@ export const updateSettings = async (db, walletId, data) => {
         newSettings.haptic_feedback_enabled
     ).run();
     
-    return { wallet_id: walletId, ...newSettings };
+    return { book_id: bookId, ...newSettings };
 };
 
-export const findRemindersByWalletId = async (db, walletId) => {
-    return (await db.prepare('SELECT * FROM reminders WHERE wallet_id = ? AND is_active = 1 ORDER BY reminder_date ASC').bind(walletId).all()).results;
+export const findRemindersByBookId = async (db, bookId) => {
+    return (await db.prepare('SELECT * FROM reminders WHERE book_id = ? AND is_active = 1 ORDER BY reminder_date ASC').bind(bookId).all()).results;
 };
 export const createReminder = async (db, data) => {
     const newId = `rem-${crypto.randomUUID()}`;
     const amountInCents = data.amount ? Math.round(data.amount * 100) : null;
-    await db.prepare('INSERT INTO reminders (id, wallet_id, description, amount, reminder_date) VALUES (?, ?, ?, ?, ?)')
-        .bind(newId, data.wallet_id, data.description, amountInCents, data.reminder_date).run();
+    await db.prepare('INSERT INTO reminders (id, book_id, description, amount, reminder_date) VALUES (?, ?, ?, ?, ?)')
+        .bind(newId, data.book_id, data.description, amountInCents, data.reminder_date).run();
     return { id: newId, ...data };
 };
 export const updateReminder = async (db, reminderId, data) => {
@@ -562,16 +562,16 @@ export const deleteReminder = async (db, reminderId) => {
 };
 
 // --- [BARU] CRUD untuk Tujuan Tabungan (Goals) ---
-export const findGoalsByWalletId = async (db, walletId) => {
-    return (await db.prepare('SELECT * FROM goals WHERE wallet_id = ? ORDER BY created_at DESC').bind(walletId).all()).results;
+export const findGoalsByBookId = async (db, bookId) => {
+    return (await db.prepare('SELECT * FROM goals WHERE book_id = ? ORDER BY created_at DESC').bind(bookId).all()).results;
 };
 
 export const createGoal = async (db, data) => {
     const newId = `goal-${crypto.randomUUID()}`;
     const targetAmountInCents = Math.round(data.target_amount * 100);
 
-    await db.prepare('INSERT INTO goals (id, wallet_id, name, target_amount, target_date, icon) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(newId, data.wallet_id, data.name, targetAmountInCents, data.target_date, data.icon).run();
+    await db.prepare('INSERT INTO goals (id, book_id, name, target_amount, target_date, icon) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(newId, data.book_id, data.name, targetAmountInCents, data.target_date, data.icon).run();
     
     return { id: newId, ...data };
 };
@@ -591,7 +591,7 @@ export const deleteGoal = async (db, goalId) => {
     return await db.prepare('DELETE FROM goals WHERE id = ?').bind(goalId).run();
 };
 // --- [BARU] Fungsi untuk Rekomendasi Cerdas ---
-export const getCategoryRecommendations = async (db, walletId, description) => {
+export const getCategoryRecommendations = async (db, bookId, description) => {
     if (!description || description.trim() === '') {
         return [];
     }
@@ -611,21 +611,21 @@ export const getCategoryRecommendations = async (db, walletId, description) => {
         JOIN transaction_splits s ON t.id = s.transaction_id
         JOIN categories c ON s.category_id = c.id
         WHERE 
-            t.wallet_id = ? AND (${whereClauses})
+            t.book_id = ? AND (${whereClauses})
         GROUP BY c.id
         ORDER BY frequency DESC
         LIMIT 5
     `;
 
     // Siapkan parameter, setiap kata kunci dibungkus dengan wildcard '%'
-    const params = [walletId, ...keywords.map(kw => `%${kw}%`)];
+    const params = [bookId, ...keywords.map(kw => `%${kw}%`)];
 
     return (await db.prepare(query).bind(...params).all()).results;
 };
 // --- [BARU] CRUD untuk Catatan (Notes) ---
-export const findNotesByWalletId = async (db, walletId, filters = {}) => {
-    let query = 'SELECT * FROM notes WHERE wallet_id = ?';
-    const params = [walletId];
+export const findNotesByBookId = async (db, bookId, filters = {}) => {
+    let query = 'SELECT * FROM notes WHERE book_id = ?';
+    const params = [bookId];
     if (filters.date) {
         query += ' AND note_date = ?';
         params.push(filters.date);
@@ -635,8 +635,8 @@ export const findNotesByWalletId = async (db, walletId, filters = {}) => {
 };
 export const createNote = async (db, data, userId) => {
     const newId = `note-${crypto.randomUUID()}`;
-    await db.prepare('INSERT INTO notes (id, wallet_id, title, content, note_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(newId, data.wallet_id, data.title, data.content, data.note_date, userId).run();
+    await db.prepare('INSERT INTO notes (id, book_id, title, content, note_date, created_by) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(newId, data.book_id, data.title, data.content, data.note_date, userId).run();
     return { id: newId, ...data };
 };
 export const updateNote = async (db, noteId, data, userId) => {
@@ -650,7 +650,7 @@ export const deleteNote = async (db, noteId) => {
 // [PERBAIKAN UNTUK FILE: casflo-api/src/db/queries.js]
 // Ganti fungsi exportTransactionsAsCSV yang lama dengan ini:
 
-export const exportTransactionsAsCSV = async (db, walletId) => {
+export const exportTransactionsAsCSV = async (db, bookId) => {
     // [PERBAIKAN 1] Tambahkan "c.type as category_type" dan "s.category_id IS NOT NULL"
     const { results } = await db.prepare(`
         SELECT 
@@ -664,9 +664,9 @@ export const exportTransactionsAsCSV = async (db, walletId) => {
         JOIN transaction_splits s ON t.id = s.transaction_id
         JOIN accounts a ON s.account_id = a.id
         LEFT JOIN categories c ON s.category_id = c.id
-        WHERE t.wallet_id = ? AND s.category_id IS NOT NULL
+        WHERE t.book_id = ? AND s.category_id IS NOT NULL
         ORDER BY t.transaction_date DESC
-    `).bind(walletId).all();
+    `).bind(bookId).all();
 
     if (!results || results.length === 0) {
         return "Tanggal,Deskripsi,Kategori,Tipe,Akun,Pemasukan,Pengeluaran\nTidak ada data untuk diekspor.";
