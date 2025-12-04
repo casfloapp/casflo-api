@@ -1,34 +1,20 @@
 {
   "name": "casflo-api",
-  "version": "2.0.0",
-  "description": "Enterprise-grade Casflo API with advanced security and scalability",
-  "main": "src/index.js",
+  "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy --minify",
-    "deploy:staging": "wrangler deploy --env staging",
-    "deploy:production": "wrangler deploy --env production",
-    "lint": "eslint src/",
-    "format": "prettier --write src/",
-    "test": "node --test",
-    "db:migrate": "node scripts/migrate.js",
-    "db:seed": "node scripts/seed.js",
-    "db:backup": "node scripts/backup.js"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "hono": "^4.10.7",
     "@hono/zod-validator": "^0.2.2",
-    "@google/genai": "^1.30.0",
-    "bcryptjs": "^2.4.3",
-    "hono": "^4.4.7",
-    "jose": "^5.2.3",
-    "nanoid": "^5.0.7",
-    "zod": "^3.23.8"
+    "zod": "^3.25.76",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240512.0",
-    "wrangler": "^3.60.3",
-    "eslint": "^8.57.0",
-    "prettier": "^3.2.5"
+    "wrangler": "^3.114.15",
+    "@cloudflare/workers-types": "^4.20251202.0"
   }
 }

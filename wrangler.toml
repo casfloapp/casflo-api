@@ -1,46 +1,21 @@
 name = "casflo-api"
 main = "src/index.js"
-compatibility_date = "2024-01-15"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2024-12-01"
 
-# D1 Database
+[vars]
+JWT_SECRET = "CHANGE_ME_JWT_SECRET"
+GEMINI_API_KEY = "CHANGE_ME_GEMINI_KEY"
+
 [[d1_databases]]
 binding = "DB"
-database_name = "casflo-db-enterprise"
-database_id = "e709e0b4-b45f-4ebb-a7c2-5d46c78beda1"
+database_name = "casflo_db"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
 
-# KV Namespaces for different purposes
-[[kv_namespaces]]
-binding = "CACHE"
-id = "d1937c4d13a74ca3ab54fa09925e77eb"
+[durable_objects]
+bindings = [
+  { name = "WebSocketManager", class_name = "WebSocketManager" }
+]
 
-[[kv_namespaces]]
-binding = "SESSIONS"
-id = "cc23860b1e55497abca299b0e41bae07"
-
-[[kv_namespaces]]
-binding = "RATE_LIMIT"
-id = "a1ab6bc8f8104dc1937a68c84a737423"
-
-# Durable Objects
-[[durable_objects.bindings]]
-name = "WEBSOCKET_MANAGER"
-class_name = "WebSocketManager"
-
-# Environment variables (TANPA SECRETS!)
-[vars]
-ENVIRONMENT = "production"
-API_VERSION = "2.0.0"
-SESSION_TTL = "86400"
-REFRESH_TTL = "604800"
-CACHE_TTL = "300"
-RATE_LIMIT_WINDOW = "900"
-RATE_LIMIT_MAX_REQUESTS = "1000"
-MAX_REQUEST_SIZE = "10485760"
-GOOGLE_CLIENT_ID= "473245691333-3ke9rv1f4r4l5itpueefbkladk8uuhcu.apps.googleusercontent.com"
-EMAIL_FROM = "noreply@casflo.id"
-FRONTEND_URL = "https://app.casflo.id"
-
-# Security headers
-[unsafe.metadata]
-security_headers = "true"
+[[migrations]]
+tag = "v1"
+new_classes = ["WebSocketManager"]

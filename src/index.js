@@ -1,198 +1,60 @@
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { logger } from 'hono/logger';
-import { secureHeaders, rateLimit, requestLogger } from './middleware/security.js';
-import { errorHandler } from './middleware/errorHandler.js';
-import { WebSocketManager } from './durable-objects/websocket-manager.js';
-import { protect } from './middleware/legacy-auth.js';
-import { processScanRequest } from './lib/gemini.js';
+import { Hono } from 'hono'
+import { secureHeaders, rateLimit, requestLogger } from './middleware/security.js'
+import { errorHandler } from './middleware/errorHandler.js'
+import { authRoutes } from './routes/auth.js'
+import { userRoutes } from './routes/users.js'
+import { bookRoutes } from './routes/books.js'
+import { transactionRoutes } from './routes/transactions.js'
+import { analyticsRoutes } from './routes/analytics.js'
+import { adminRoutes } from './routes/admin.js'
+import { webhookRoutes } from './routes/webhooks.js'
+import { healthRoutes } from './routes/health.js'
+import { scanRoutes } from './routes/scan.js'
 
+// Base app with /api/v1 prefix
+const app = new Hono().basePath('/api/v1')
 
-// Route imports
-import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
-import bookRoutes from './routes/books.js';
-import transactionRoutes from './routes/transactions.js';
-import analyticsRoutes from './routes/analytics.js';
-import adminRoutes from './routes/admin.js';
-import webhookRoutes from './routes/webhooks.js';
-import healthRoutes from './routes/health.js';
+// Global middlewares
+app.use('*', secureHeaders)
+app.use('*', requestLogger)
+app.use('*', rateLimit)
 
-const app = new Hono().basePath('/api/v1');
+// Health & docs
+app.route('/health', healthRoutes)
 
-// Security and performance middleware
-app.use('*', secureHeaders);
-app.use('*', logger());
-app.use('*', requestLogger);
-app.use('*', rateLimit);
-
-// CORS configuration
-app.use('*', cors({
-  origin: (origin, c) => {
-    const allowedOrigins = [
-      'https://app.casflo.id',
-      'https://casflo.id',
-      'http://localhost:3000',
-      'http://localhost:8787',
-      'https://app.casflo.id'
-    ];
-    
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin) return true;
-    return /^https:\/\/(\w+\.)?casflo\.id$/.test(origin);
-    
-  },
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-API-Key', 
-    'X-Request-ID',
-    'X-Client-Version'
-  ],
-  exposeHeaders: ['X-Total-Count', 'X-Rate-Limit-Remaining'],
-  credentials: true,
-  maxAge: 86400
-}));
-
-// Global error handler
-app.onError(errorHandler);
-
-// API Routes
-app.route('/auth', authRoutes);
-app.route('/users', userRoutes);
-app.route('/books', bookRoutes);
-app.route('/transactions', transactionRoutes);
-app.route('/analytics', analyticsRoutes);
-app.route('/admin', adminRoutes);
-app.route('/webhooks', webhookRoutes);
-app.route('/health', healthRoutes);
-
-// Legacy scan receipt endpoint (from v1)
-app.post('/scan', protect, async (c) => {
-  try {
-    const resultData = await processScanRequest(c, c.env);
-    return c.json({ success: true, data: resultData });
-  } catch (error) {
-    console.error('Error di /api/v1/scan:', error.message);
-    return c.json({ error: error.message }, 500);
-  }
-});
-
-
-// API Documentation endpoint
 app.get('/', (c) => {
   return c.json({
-    name: 'Casflo API Enterprise',
-    version: '2.0.0',
-    description: 'Enterprise-grade financial management API',
-    environment: c.env.ENVIRONMENT || 'development',
+    name: 'Casflo API (rewritten)',
+    basePath: '/api/v1',
+    status: 'ok',
     endpoints: {
-      auth: '/auth',
-      users: '/users',
-      books: '/books',
-      transactions: '/transactions',
-      scan: '/scan',
-      analytics: '/analytics',
-      admin: '/admin',
-      webhooks: '/webhooks',
       health: '/health',
-      docs: '/docs'
-    },
-    documentation: 'https://docs.casflo.id/api/v2',
-    status: 'https://status.casflo.id'
-  });
-});
-
-// API Documentation
-app.get('/docs', (c) => {
-  return c.json({
-    title: 'Casflo API v2 Documentation',
-    version: '2.0.0',
-    baseUrl: `${c.req.url.split('/api/')[0]}/api/v2`,
-    authentication: {
-      type: 'Bearer Token',
-      description: 'JWT token obtained from /auth/login',
-      header: 'Authorization: Bearer <token>'
-    },
-    rateLimit: {
-      window: '15 minutes',
-      maxRequests: 1000,
-      headers: {
-        remaining: 'X-Rate-Limit-Remaining',
-        reset: 'X-Rate-Limit-Reset'
-      }
-    },
-    responses: {
-      success: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean', example: true },
-          data: { type: 'object' },
-          message: { type: 'string' },
-          pagination: {
-            type: 'object',
-            properties: {
-              page: { type: 'number' },
-              limit: { type: 'number' },
-              total: { type: 'number' },
-              totalPages: { type: 'number' }
-            }
-          }
-        }
-      },
-      error: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean', example: false },
-          error: { type: 'string' },
-          code: { type: 'string' },
-          details: { type: 'object' },
-          requestId: { type: 'string' }
-        }
-      }
+      auth: '/auth/*',
+      users: '/users/*',
+      books: '/books/*',
+      transactions: '/transactions/*',
+      analytics: '/analytics/*',
+      admin: '/admin/*',
+      webhooks: '/webhooks/*',
+      scan: '/scan'
     }
-  });
-});
+  })
+})
 
-// 404 handler
-app.notFound((c) => {
-  return c.json({
-    success: false,
-    error: 'Endpoint not found',
-    code: 'NOT_FOUND',
-    requestId: c.get('requestId'),
-    availableEndpoints: [
-      '/auth',
-      '/users',
-      '/books',
-      '/transactions',
-      '/analytics',
-      '/admin',
-      '/webhooks',
-      '/health'
-    ]
-  }, 404);
-});
+// Feature routes
+app.route('/auth', authRoutes)
+app.route('/users', userRoutes)
+app.route('/books', bookRoutes)
+app.route('/transactions', transactionRoutes)
+app.route('/analytics', analyticsRoutes)
+app.route('/admin', adminRoutes)
+app.route('/webhooks', webhookRoutes)
+app.route('/scan', scanRoutes)
 
-export default {
-  // Add Durable Object export
-  async fetch(request, env, ctx) {
-    // Check if this is a WebSocket request
-    if (request.url.includes('/ws')) {
-      const id = env.WEBSOCKET_MANAGER.idFromName('global');
-      const stub = env.WEBSOCKET_MANAGER.get(id);
-      return stub.fetch(request);
-    }
-    
-    const jwtSecret = env.JWT_SECRET;
-    const googleClientSecret = env.GOOGLE_CLIENT_SECRET;
-    const encryptionKey = env.ENCRYPTION_KEY;
+// Error handler (must be last)
+app.onError((err, c) => errorHandler(err, c))
 
-    // Continue with normal API processing
-    return app.fetch(request, env, ctx);
-  },
-  
-  // Durable Object class
-  WebSocketManager: WebSocketManager
-};
+export default app
+
+// Durable Object export (for WebSocket etc. if needed later)
+export { WebSocketManager } from './durable-objects/websocket-manager.js'
