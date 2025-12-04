@@ -7,12 +7,3 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "casflo_db"
 database_id = "fb305b83-a406-4454-a25c-c35c0482ca12"
-
-[durable_objects]
-bindings = [
-  { name = "WebSocketManager", class_name = "WebSocketManager" }
-]
-
-[[migrations]]
-tag = "v1"
-new_classes = ["WebSocketManager"]
