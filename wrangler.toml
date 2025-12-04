@@ -1,0 +1,45 @@
+name = "casflo-api"
+main = "src/index.js"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "casflo-db-enterprise"
+database_id = "e709e0b4-b45f-4ebb-a7c2-5d46c78beda1"
+
+# KV Namespaces for different purposes
+[[kv_namespaces]]
+binding = "CACHE"
+id = "d1937c4d13a74ca3ab54fa09925e77eb"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "cc23860b1e55497abca299b0e41bae07"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "a1ab6bc8f8104dc1937a68c84a737423"
+
+# Durable Objects
+[[durable_objects.bindings]]
+name = "WEBSOCKET_MANAGER"
+class_name = "WebSocketManager"
+
+# Environment variables (TANPA SECRETS!)
+[vars]
+ENVIRONMENT = "production"
+API_VERSION = "2.0.0"
+SESSION_TTL = "86400"
+REFRESH_TTL = "604800"
+CACHE_TTL = "300"
+RATE_LIMIT_WINDOW = "900"
+RATE_LIMIT_MAX_REQUESTS = "1000"
+MAX_REQUEST_SIZE = "10485760"
+EMAIL_FROM = "noreply@casflo.id"
+FRONTEND_URL = "https://app.casflo.id"
+
+# Security headers
+[unsafe.metadata]
+security_headers = "true"
