@@ -1,5 +1,5 @@
 {
-  "name": "casflo-api-enterprise",
+  "name": "casflo-api",
   "version": "2.0.0",
   "description": "Enterprise-grade Casflo API with advanced security and scalability",
   "main": "src/index.js",
