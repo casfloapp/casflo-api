@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { secureHeaders } from './middleware/security.js';
+import { secureHeaders, rateLimit, requestLogger } from './middleware/security.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import { rateLimit } from './middleware/rateLimit.js';
-import { requestLogger } from './middleware/requestLogger.js';
 import { WebSocketManager } from './durable-objects/websocket-manager.js';
+import { protect } from './middleware/legacy-auth.js';
+import { processScanRequest } from './lib/gemini.js';
 
 
 // Route imports
@@ -18,7 +18,7 @@ import adminRoutes from './routes/admin.js';
 import webhookRoutes from './routes/webhooks.js';
 import healthRoutes from './routes/health.js';
 
-const app = new Hono().basePath('/api/v2');
+const app = new Hono().basePath('/api/v1');
 
 // Security and performance middleware
 app.use('*', secureHeaders);
@@ -68,6 +68,18 @@ app.route('/admin', adminRoutes);
 app.route('/webhooks', webhookRoutes);
 app.route('/health', healthRoutes);
 
+// Legacy scan receipt endpoint (from v1)
+app.post('/scan', protect, async (c) => {
+  try {
+    const resultData = await processScanRequest(c, c.env);
+    return c.json({ success: true, data: resultData });
+  } catch (error) {
+    console.error('Error di /api/v1/scan:', error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+
 // API Documentation endpoint
 app.get('/', (c) => {
   return c.json({
@@ -80,6 +92,7 @@ app.get('/', (c) => {
       users: '/users',
       books: '/books',
       transactions: '/transactions',
+      scan: '/scan',
       analytics: '/analytics',
       admin: '/admin',
       webhooks: '/webhooks',
