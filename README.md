@@ -135,48 +135,6 @@ src/
 
 ## 🔧 Configuration
 
-### Environment Variables
-```env
-# Application
-ENVIRONMENT=development
-API_VERSION=2.0.0
-
-# Security
-JWT_SECRET=your-jwt-secret-key
-REFRESH_TOKEN_SECRET=your-refresh-token-secret
-ENCRYPTION_KEY=your-32-character-encryption-key
-
-# Database
-DATABASE_URL=your-database-url
-
-# Cache
-CACHE_TTL=300
-SESSION_TTL=86400
-
-# Rate Limiting
-RATE_LIMIT_WINDOW=900
-RATE_LIMIT_MAX_REQUESTS=1000
-
-# External Services
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-EMAIL_FROM=noreply@casflo.id
-
-# Frontend
-FRONTEND_URL=https://app.casflo.id
-
-# Webhooks
-WEBHOOK_SECRET=your-webhook-secret
-```
-
-### Database Setup
-1. Create D1 database in Cloudflare Dashboard
-2. Update `wrangler.toml` with database ID
-3. Run migrations: `npm run db:migrate`
-4. Seed initial data: `npm run db:seed`
-
-## 🚀 Deployment
-
 ### Prerequisites
 - Node.js 18+
 - Cloudflare account
