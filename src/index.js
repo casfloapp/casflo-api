@@ -171,6 +171,10 @@ export default {
       return stub.fetch(request);
     }
     
+    const jwtSecret = env.JWT_SECRET;
+    const googleClientSecret = env.GOOGLE_CLIENT_SECRET;
+    const encryptionKey = env.ENCRYPTION_KEY;
+
     // Continue with normal API processing
     return app.fetch(request, env, ctx);
   },

@@ -83,6 +83,20 @@ export class AuthService {
     this.env = env;
     this.tokenService = new TokenService(env);
     this.sessionModel = new SessionModel(env.DB, env.CACHE);
+    this.jwtSecret = env.JWT_SECRET;
+    this.refreshSecret = env.REFRESH_TOKEN_SECRET;
+    this.encryptionKey = env.ENCRYPTION_KEY;
+  }
+
+  async generateTokens(payload) {
+    // Gunakan secrets dari environment
+    const accessToken = await new SignJWT(payload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + (24 * 60 * 60))
+      .sign(new TextEncoder().encode(this.jwtSecret));
+    
+    return accessToken;
   }
   
   async register(userData) {

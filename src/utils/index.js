@@ -415,6 +415,37 @@ export class FileUtils {
   }
 }
 
+export class Logger {
+  static info(message, data) {
+    console.log(JSON.stringify({ level: 'INFO', message, data, timestamp: new Date().toISOString() }));
+  }
+  static error(message, error, data) {
+    console.error(JSON.stringify({ level: 'ERROR', message, error: error?.message || error, stack: error?.stack, data, timestamp: new Date().toISOString() }));
+  }
+  static warn(message, data) {
+    console.warn(JSON.stringify({ level: 'WARN', message, data, timestamp: new Date().toISOString() }));
+  }
+  static debug(message, data) {
+    console.debug(JSON.stringify({ level: 'DEBUG', message, data, timestamp: new Date().toISOString() }));
+  }
+}
+
+export class CacheUtils {
+  static async get(kv, key) {
+    if (!kv) return null;
+    const val = await kv.get(key);
+    return val ? JSON.parse(val) : null;
+  }
+  static async set(kv, key, value, ttl) {
+    if (!kv) return;
+    await kv.put(key, JSON.stringify(value), { expirationTtl: ttl });
+  }
+  static async delete(kv, key) {
+    if (!kv) return;
+    await kv.delete(key);
+  }
+}
+
 export default {
   Performance,
   IdGenerator,
@@ -423,5 +454,7 @@ export default {
   DateUtils,
   EncryptionUtils,
   AsyncUtils,
-  FileUtils
+  FileUtils,
+  Logger,
+  CacheUtils
 };

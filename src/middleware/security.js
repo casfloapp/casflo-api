@@ -495,6 +495,36 @@ export const limitRequestSize = (maxSize = 10 * 1024 * 1024) => { // 10MB defaul
   };
 };
 
+export const cache = (ttlSeconds = 60) => {
+  return async (c, next) => {
+    // Hanya cache GET request
+    if (c.req.method !== 'GET') {
+      await next();
+      return;
+    }
+
+    const cacheKey = c.req.url;
+    
+    // Coba ambil dari KV
+    if (c.env.CACHE) {
+      const cached = await CacheUtils.get(c.env.CACHE, cacheKey);
+      if (cached) {
+        c.header('X-Cache', 'HIT');
+        return c.json(cached);
+      }
+    }
+
+    await next();
+
+    // Simpan ke KV jika sukses (Logika sederhana: simpan data JSON response)
+    // Catatan: Di Hono middleware, menangkap body response setelah next() agak tricky.
+    // Untuk kestabilan sekarang, kita biarkan pass-through (lewat saja) dulu 
+    // atau tandai MISS agar tidak error.
+    c.header('X-Cache', 'MISS');
+  };
+};
+
+
 // Import JWT verification function
 import { jwtVerify } from 'jose';
 
@@ -510,5 +540,6 @@ export default {
   validate,
   requireContentType,
   requireWhitelistedIP,
-  limitRequestSize
+  limitRequestSize,
+  cache 
 };
