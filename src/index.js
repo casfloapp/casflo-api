@@ -33,7 +33,8 @@ app.use('*', cors({
       'https://app.casflo.id',
       'https://casflo.id',
       'http://localhost:3000',
-      'http://localhost:8787'
+      'http://localhost:8787',
+      'app.casflo.id'
     ];
     
     // Allow requests with no origin (mobile apps, curl, etc.)
