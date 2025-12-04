@@ -39,8 +39,8 @@ app.use('*', cors({
     
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return true;
+    return /^https:\/\/(\w+\.)?casflo\.id$/.test(origin);
     
-    return allowedOrigins.includes(origin);
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowHeaders: [
