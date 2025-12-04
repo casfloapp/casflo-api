@@ -3,14 +3,10 @@ main = "src/index.js"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-[vars]
-JWT_SECRET = "CHANGE_ME_JWT_SECRET"
-GEMINI_API_KEY = "CHANGE_ME_GEMINI_KEY"
-
 [[d1_databases]]
 binding = "DB"
 database_name = "casflo_db"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "fb305b83-a406-4454-a25c-c35c0482ca12"
 
 [durable_objects]
 bindings = [
