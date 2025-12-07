@@ -1,19 +1,22 @@
-import jwt from 'jsonwebtoken'
+// src/middleware/auth.js
+import { verifySessionToken } from '../lib/jwt.js';
 
 export const protect = async (c, next) => {
-  const authHeader = c.req.header('Authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  const authHeader = c.req.header('Authorization');
 
-  if (!token) {
-    return c.json({ error: 'Unauthorized' }, 401)
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ success: false, error: { message: 'Unauthorized' } }, 401);
   }
 
-  try {
-    const payload = jwt.verify(token, c.env.JWT_SECRET)
-    c.set('user', payload)
-    await next()
-  } catch (err) {
-    console.error('JWT error:', err)
-    return c.json({ error: 'Invalid token' }, 401)
+  const token = authHeader.split(' ')[1];
+  const decoded = await verifySessionToken(c, token);
+
+  if (!decoded) {
+    return c.json({ success: false, error: { message: 'Invalid or expired token' } }, 401);
   }
-}
+
+  // Simpan payload (berisi user ID) di konteks untuk digunakan di rute
+  c.set('user', { id: decoded.sub });
+
+  await next();
+};

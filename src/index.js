@@ -1,60 +1,53 @@
-import { Hono } from 'hono'
-import { secureHeaders, rateLimit, requestLogger } from './middleware/security.js'
-import { errorHandler } from './middleware/errorHandler.js'
-import { authRoutes } from './routes/auth.js'
-import { userRoutes } from './routes/users.js'
-import { bookRoutes } from './routes/books.js'
-import { transactionRoutes } from './routes/transactions.js'
-import { analyticsRoutes } from './routes/analytics.js'
-import { adminRoutes } from './routes/admin.js'
-import { webhookRoutes } from './routes/webhooks.js'
-import { healthRoutes } from './routes/health.js'
-import { scanRoutes } from './routes/scan.js'
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import authRoutes from './routes/auth.js';
+import bookRoutes from './routes/books.js';
+import { protect } from './middleware/auth.js'; // [BARU] Impor middleware 'protect'
+import { processScanRequest } from './lib/gemini.js'; // [BARU] Impor fungsi AI kita
 
-// Base app with /api/v1 prefix
-const app = new Hono().basePath('/api/v1')
+const app = new Hono().basePath('/api/v1');
 
-// Global middlewares
-app.use('*', secureHeaders)
-app.use('*', requestLogger)
-app.use('*', rateLimit)
+// Terapkan middleware CORS
+app.use('*', cors({
+  origin: [
+    'https://app.casflo.id', 
+    'http://localhost:8787', 
+    'http://127.0.0.1:8787' 
+  ],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Health & docs
-app.route('/health', healthRoutes)
 
+// Rute dasar
 app.get('/', (c) => {
   return c.json({
-    name: 'Casflo API (rewritten)',
-    basePath: '/api/v1',
-    status: 'ok',
-    endpoints: {
-      health: '/health',
-      auth: '/auth/*',
-      users: '/users/*',
-      books: '/books/*',
-      transactions: '/transactions/*',
-      analytics: '/analytics/*',
-      admin: '/admin/*',
-      webhooks: '/webhooks/*',
-      scan: '/scan'
+    success: true,
+    message: 'Selamat datang di casflo API v1!',
+  });
+});
+
+// Mendaftarkan grup rute
+app.route('/auth', authRoutes);
+app.route('/books', bookRoutes);
+
+// --- [BLOK BARU UNTUK SCAN STRUK] ---
+// Endpoint ini akan berada di /api/v1/scan
+app.post('/scan', protect, async (c) => {
+    try {
+        // Panggil fungsi pemroses utama dari gemini.js
+        // Kita teruskan 'c' (context) dan 'c.env' (environment)
+        const resultData = await processScanRequest(c, c.env);
+        
+        // Kembalikan data yang sudah diproses ke frontend
+        return c.json({ success: true, data: resultData });
+
+    } catch (error) {
+        console.error("Error di /api/v1/scan:", error.message);
+        return c.json({ error: error.message }, 500);
     }
-  })
-})
+});
+// --- [AKHIR BLOK BARU] ---
 
-// Feature routes
-app.route('/auth', authRoutes)
-app.route('/users', userRoutes)
-app.route('/books', bookRoutes)
-app.route('/transactions', transactionRoutes)
-app.route('/analytics', analyticsRoutes)
-app.route('/admin', adminRoutes)
-app.route('/webhooks', webhookRoutes)
-app.route('/scan', scanRoutes)
-
-// Error handler (must be last)
-app.onError((err, c) => errorHandler(err, c))
-
-export default app
-
-// Durable Object export (for WebSocket etc. if needed later)
-export { WebSocketManager } from './durable-objects/websocket-manager.js'
+// Export aplikasi sebagai default
+export default app;

@@ -1,20 +1,18 @@
 {
-  "name": "casflo-api",
-  "version": "1.0.0",
+  "name": "api.casflo.id",
+  "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "start": "wrangler dev",
+    "deploy": "wrangler deploy --minify"
   },
   "dependencies": {
-    "hono": "^4.10.7",
-    "@hono/zod-validator": "^0.2.2",
-    "zod": "^3.25.76",
-    "jsonwebtoken": "^9.0.2"
+    "@google/genai": "^1.29.1",
+    "bcryptjs": "^3.0.2",
+    "hono": "^4.4.7"
   },
   "devDependencies": {
-    "wrangler": "^3.114.15",
-    "@cloudflare/workers-types": "^4.20251202.0"
+    "wrangler": "^3.60.3"
   }
 }

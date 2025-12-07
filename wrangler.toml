@@ -1,9 +1,8 @@
 name = "casflo-api"
 main = "src/index.js"
-compatibility_date = "2024-12-01"
-compatibility_flags = ["nodejs_compat"]
-
+compatibility_date = "2024-05-01"
+# Menghubungkan ke Database D1
 [[d1_databases]]
 binding = "DB"
-database_name = "casflo_db"
+database_name = "casflo"
 database_id = "fb305b83-a406-4454-a25c-c35c0482ca12"
